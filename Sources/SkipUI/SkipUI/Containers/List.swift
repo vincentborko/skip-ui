@@ -25,6 +25,7 @@ import androidx.compose.material.pullrefresh.PullRefreshIndicator
 import androidx.compose.material.pullrefresh.PullRefreshState
 import androidx.compose.material.pullrefresh.pullRefresh
 import androidx.compose.material.pullrefresh.rememberPullRefreshState
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
@@ -70,8 +71,10 @@ public final class List : View, Renderable {
     let fixedContent: ComposeBuilder?
     let forEach: ForEach?
     let itemTransformer: ((any Renderable) -> any Renderable)?
+    let singleSelection: Binding<AnyHashable?>?
+    let multiSelection: Binding<Set<AnyHashable>>?
 
-    init(fixedContent: (any View)? = nil, identifier: ((Any) -> AnyHashable?)? = nil, itemTransformer: ((any Renderable) -> any Renderable)? = nil, indexRange: Range<Int>? = nil, indexedContent: ((Int) -> any View)? = nil, objects: (any RandomAccessCollection<Any>)? = nil, objectContent: ((Any) -> any View)? = nil, objectsBinding: Binding<any RandomAccessCollection<Any>>? = nil, objectsBindingContent: ((Binding<any RandomAccessCollection<Any>>, Int) -> any View)? = nil, editActions: EditActions = []) {
+    init(fixedContent: (any View)? = nil, identifier: ((Any) -> AnyHashable?)? = nil, itemTransformer: ((any Renderable) -> any Renderable)? = nil, indexRange: Range<Int>? = nil, indexedContent: ((Int) -> any View)? = nil, objects: (any RandomAccessCollection<Any>)? = nil, objectContent: ((Any) -> any View)? = nil, objectsBinding: Binding<any RandomAccessCollection<Any>>? = nil, objectsBindingContent: ((Binding<any RandomAccessCollection<Any>>, Int) -> any View)? = nil, editActions: EditActions = [], singleSelection: Binding<AnyHashable?>? = nil, multiSelection: Binding<Set<AnyHashable>>? = nil) {
         if let fixedContent {
             self.fixedContent = fixedContent as? ComposeBuilder ?? ComposeBuilder(view: fixedContent)
         } else {
@@ -87,15 +90,20 @@ public final class List : View, Renderable {
             self.forEach = nil
         }
         self.itemTransformer = itemTransformer
+        self.singleSelection = singleSelection
+        self.multiSelection = multiSelection
     }
 
     public convenience init(@ViewBuilder content: () -> any View) {
         self.init(fixedContent: content())
     }
 
-    @available(*, unavailable)
-    public convenience init(selection: Binding<Any>, @ViewBuilder content: () -> any View) {
-        self.init(fixedContent: content())
+    public convenience init(selection: Binding<AnyHashable?>, @ViewBuilder content: () -> any View) {
+        self.init(fixedContent: content(), singleSelection: selection)
+    }
+
+    public convenience init(selection: Binding<Set<AnyHashable>>, @ViewBuilder content: () -> any View) {
+        self.init(fixedContent: content(), multiSelection: selection)
     }
 
     // SKIP @bridge
@@ -108,6 +116,8 @@ public final class List : View, Renderable {
             self.forEach = nil
         }
         self.itemTransformer = nil
+        self.singleSelection = nil
+        self.multiSelection = nil
     }
 
     #if SKIP
@@ -272,7 +282,8 @@ public final class List : View, Renderable {
                         let index = itemCollector.value.remapIndex(index, from: offset)
                         let itemModifier: Modifier = shouldAnimateItems() ? Modifier.animateItem() : Modifier
                         let renderable = factory(index + range.start, itemContext)
-                        RenderEditableItem(content: renderable, level: level, context: itemContext, modifier: itemModifier, styling: styling, key: keyValue, index: index, onDelete: onDelete, onMove: onMove, reorderableState: reorderableState)
+                        let itemId = identifier?(range.start + index)
+                        RenderEditableItem(content: renderable, level: level, context: itemContext, modifier: itemModifier, styling: styling, key: keyValue, index: index, onDelete: onDelete, onMove: onMove, reorderableState: reorderableState, itemId: itemId)
                     }
                 },
                 objectItems: { objects, identifier, offset, onDelete, onMove, level, factory in
@@ -282,7 +293,8 @@ public final class List : View, Renderable {
                         let index = itemCollector.value.remapIndex(index, from: offset)
                         let itemModifier: Modifier = shouldAnimateItems() ? Modifier.animateItem() : Modifier
                         let renderable = factory(objects[index], itemContext)
-                        RenderEditableItem(content: renderable, level: level, context: itemContext, modifier: itemModifier, styling: styling, key: keyValue, index: index, onDelete: onDelete, onMove: onMove, reorderableState: reorderableState)
+                        let itemId = identifier(objects[index])
+                        RenderEditableItem(content: renderable, level: level, context: itemContext, modifier: itemModifier, styling: styling, key: keyValue, index: index, onDelete: onDelete, onMove: onMove, reorderableState: reorderableState, itemId: itemId)
                     }
                 },
                 objectBindingItems: { objectsBinding, identifier, offset, editActions, onDelete, onMove, level, factory in
@@ -292,7 +304,8 @@ public final class List : View, Renderable {
                         let index = itemCollector.value.remapIndex(index, from: offset)
                         let itemModifier: Modifier = shouldAnimateItems() ? Modifier.animateItem() : Modifier
                         let renderable = factory(objectsBinding, index, itemContext)
-                        RenderEditableItem(content: renderable, level: level, context: itemContext, modifier: itemModifier, styling: styling, objectsBinding: objectsBinding, key: keyValue, index: index, editActions: editActions, onDelete: onDelete, onMove: onMove, reorderableState: reorderableState)
+                        let itemId = identifier(objectsBinding.wrappedValue[index])
+                        RenderEditableItem(content: renderable, level: level, context: itemContext, modifier: itemModifier, styling: styling, objectsBinding: objectsBinding, key: keyValue, index: index, editActions: editActions, onDelete: onDelete, onMove: onMove, reorderableState: reorderableState, itemId: itemId)
                     }
                 },
                 sectionHeader: { renderable in
@@ -356,41 +369,168 @@ public final class List : View, Renderable {
         androidx.compose.material3.Divider(modifier: Modifier.padding(start: (horizontalItemInset + level * levelInset).dp).fillMaxWidth(), color: Color.separator.colorImpl())
     }
 
-    @Composable static func RenderItemContent(item: Renderable, context: ComposeContext, modifier: Modifier) {
+    @Composable static func RenderItemContent(item: Renderable, context: ComposeContext, modifier: Modifier, itemId: AnyHashable? = nil, singleSelection: Binding<AnyHashable?>? = nil, multiSelection: Binding<Set<AnyHashable>>? = nil) {
         let badgeModifier = BadgeModifier.combined(for: item)
         let badge = badgeModifier.badge
         let (isListItem, listItemAction) = item.shouldRenderListItem(context: context)
+        
+        // Selection state
+        let isSelected = if let itemId {
+            if let singleSelection {
+                singleSelection.wrappedValue == itemId
+            } else if let multiSelection {
+                multiSelection.wrappedValue.contains(itemId)
+            } else {
+                false
+            }
+        } else {
+            false
+        }
+        
+        // Edit mode for multi-selection
+        let editMode = EnvironmentValues.shared.editMode
+        let isInEditMode = editMode?.wrappedValue == EditMode.active
+        let showMultiSelectControls = multiSelection != nil && isInEditMode
+        
         if isListItem {
             let actionModifier: Modifier
-            if let listItemAction {
+            let combinedAction: (() -> Void)?
+            
+            // Create combined action that handles both selection and original action
+            if let itemId, (singleSelection != nil || multiSelection != nil) {
+                combinedAction = {
+                    if let singleSelection {
+                        // Single selection: toggle if same item, otherwise set to new item
+                        if singleSelection.wrappedValue == itemId {
+                            singleSelection.wrappedValue = nil
+                        } else {
+                            singleSelection.wrappedValue = itemId
+                        }
+                    } else if let multiSelection {
+                        // Multi selection: toggle item in set
+                        var currentSelection = multiSelection.wrappedValue
+                        if currentSelection.contains(itemId) {
+                            currentSelection.remove(itemId)
+                        } else {
+                            currentSelection.insert(itemId)
+                        }
+                        multiSelection.wrappedValue = currentSelection
+                    }
+                    
+                    // Also call original action if not in edit mode
+                    if !isInEditMode, let listItemAction {
+                        listItemAction()
+                    }
+                }
+            } else if let listItemAction {
+                combinedAction = listItemAction
+            } else {
+                combinedAction = nil
+            }
+            
+            if let combinedAction {
                 let isDisabled = !EnvironmentValues.shared.isEnabled || item.forEachModifier { ($0 as? DisabledModifier)?.disabled } == true
-                actionModifier = Modifier.clickable(onClick: listItemAction, enabled: !isDisabled)
+                actionModifier = Modifier.clickable(onClick: combinedAction, enabled: !isDisabled)
             } else {
                 actionModifier = Modifier
             }
+            // Apply selection background
+            var finalModifier = actionModifier.then(modifier)
+            if isSelected {
+                finalModifier = finalModifier.background(Color.accentColor.opacity(0.2))
+            }
+            
             if let badge {
-                Row(modifier: actionModifier.then(modifier), horizontalArrangement: Arrangement.SpaceBetween, verticalAlignment: androidx.compose.ui.Alignment.CenterVertically) {
+                Row(modifier: finalModifier, horizontalArrangement: Arrangement.SpaceBetween, verticalAlignment: androidx.compose.ui.Alignment.CenterVertically) {
+                    Row(modifier: Modifier.weight(Float(1.0)), verticalAlignment: androidx.compose.ui.Alignment.CenterVertically) {
+                        // Multi-select checkbox
+                        if showMultiSelectControls {
+                            androidx.compose.material3.Checkbox(
+                                checked = isSelected,
+                                onCheckedChange = null, // Handled by row click
+                                modifier = Modifier.padding(end = 8.dp)
+                            )
+                        }
+                        Box(modifier: Modifier.weight(Float(1.0)), contentAlignment: androidx.compose.ui.Alignment.CenterStart) {
+                            item.RenderListItem(context: context, modifiers: listOf())
+                        }
+                    }
+                    RenderBadge(badge: badge, prominence: badgeModifier.prominence ?? .standard, context: context)
+                }
+            } else {
+                Row(modifier: finalModifier, verticalAlignment: androidx.compose.ui.Alignment.CenterVertically) {
+                    // Multi-select checkbox
+                    if showMultiSelectControls {
+                        androidx.compose.material3.Checkbox(
+                            checked = isSelected,
+                            onCheckedChange = null, // Handled by row click
+                            modifier = Modifier.padding(end = 8.dp)
+                        )
+                    }
                     Box(modifier: Modifier.weight(Float(1.0)), contentAlignment: androidx.compose.ui.Alignment.CenterStart) {
                         item.RenderListItem(context: context, modifiers: listOf())
                     }
-                    RenderBadge(badge: badge, prominence: badgeModifier.prominence ?? .standard, context: context)
-                }
-            } else {
-                Box(modifier: actionModifier.then(modifier), contentAlignment: androidx.compose.ui.Alignment.CenterStart) {
-                    item.RenderListItem(context: context, modifiers: listOf())
                 }
             }
         } else {
+            // For non-list items, we still need to handle selection if provided
+            let finalModifier = if let itemId, (singleSelection != nil || multiSelection != nil) {
+                let combinedAction = {
+                    if let singleSelection {
+                        if singleSelection.wrappedValue == itemId {
+                            singleSelection.wrappedValue = nil
+                        } else {
+                            singleSelection.wrappedValue = itemId
+                        }
+                    } else if let multiSelection {
+                        var currentSelection = multiSelection.wrappedValue
+                        if currentSelection.contains(itemId) {
+                            currentSelection.remove(itemId)
+                        } else {
+                            currentSelection.insert(itemId)
+                        }
+                        multiSelection.wrappedValue = currentSelection
+                    }
+                }
+                var mod = Modifier.clickable(onClick: combinedAction).then(modifier)
+                if isSelected {
+                    mod = mod.background(Color.accentColor.opacity(0.2))
+                }
+                mod
+            } else {
+                modifier
+            }
+            
             if let badge {
-                Row(modifier: modifier, horizontalArrangement: Arrangement.SpaceBetween, verticalAlignment: androidx.compose.ui.Alignment.CenterVertically) {
-                    Box(modifier: Modifier.weight(Float(1.0)), contentAlignment: androidx.compose.ui.Alignment.CenterStart) {
-                        item.Render(context: context)
+                Row(modifier: finalModifier, horizontalArrangement: Arrangement.SpaceBetween, verticalAlignment: androidx.compose.ui.Alignment.CenterVertically) {
+                    Row(modifier: Modifier.weight(Float(1.0)), verticalAlignment: androidx.compose.ui.Alignment.CenterVertically) {
+                        // Multi-select checkbox
+                        if showMultiSelectControls {
+                            androidx.compose.material3.Checkbox(
+                                checked = isSelected,
+                                onCheckedChange = null,
+                                modifier = Modifier.padding(end = 8.dp)
+                            )
+                        }
+                        Box(modifier = Modifier.weight(Float(1.0)), contentAlignment: androidx.compose.ui.Alignment.CenterStart) {
+                            item.Render(context: context)
+                        }
                     }
                     RenderBadge(badge: badge, prominence: badgeModifier.prominence ?? .standard, context: context)
                 }
             } else {
-                Box(modifier: modifier, contentAlignment: androidx.compose.ui.Alignment.CenterStart) {
-                    item.Render(context: context)
+                Row(modifier: finalModifier, verticalAlignment: androidx.compose.ui.Alignment.CenterVertically) {
+                    // Multi-select checkbox
+                    if showMultiSelectControls {
+                        androidx.compose.material3.Checkbox(
+                            checked = isSelected,
+                            onCheckedChange = null,
+                            modifier = Modifier.padding(end = 8.dp)
+                        )
+                    }
+                    Box(modifier = if showMultiSelectControls { Modifier.weight(Float(1.0)) } else { Modifier }, contentAlignment: androidx.compose.ui.Alignment.CenterStart) {
+                        item.Render(context: context)
+                    }
                 }
             }
         }
@@ -414,7 +554,7 @@ public final class List : View, Renderable {
         }
     }
 
-    @Composable private func RenderItem(content: Renderable, level: Int, context: ComposeContext, modifier: Modifier = Modifier, styling: ListStyling, isItem: Bool = true) {
+    @Composable private func RenderItem(content: Renderable, level: Int, context: ComposeContext, modifier: Modifier = Modifier, styling: ListStyling, isItem: Bool = true, itemId: AnyHashable? = nil) {
         guard !content.isSwiftUIEmptyView else {
             return
         }
@@ -437,7 +577,7 @@ public final class List : View, Renderable {
                     $0.set_placement(placement.union(ViewPlacement.listItem))
                     return ComposeResult.ok
                 } in: {
-                    Self.RenderItemContent(item: itemRenderable, context: contentContext, modifier: contentModifier)
+                    Self.RenderItemContent(item: itemRenderable, context: contentContext, modifier: contentModifier, itemId: itemId, singleSelection: self.singleSelection, multiSelection: self.multiSelection)
                 }
                 if listItemModifier?.separator != Visibility.hidden {
                     Self.RenderSeparator(level: level)
@@ -454,19 +594,19 @@ public final class List : View, Renderable {
         }
     }
 
-    @Composable private func RenderEditableItem(content: Renderable, level: Int, context: ComposeContext, modifier: Modifier, styling: ListStyling, objectsBinding: Binding<RandomAccessCollection<Any>>? = nil, key: String?, index: Int, editActions: EditActions = [], onDelete: ((IndexSet) -> Void)?, onMove: ((IndexSet, Int) -> Void)?, reorderableState: ReorderableLazyListState) {
+    @Composable private func RenderEditableItem(content: Renderable, level: Int, context: ComposeContext, modifier: Modifier, styling: ListStyling, objectsBinding: Binding<RandomAccessCollection<Any>>? = nil, key: String?, index: Int, editActions: EditActions = [], onDelete: ((IndexSet) -> Void)?, onMove: ((IndexSet, Int) -> Void)?, reorderableState: ReorderableLazyListState, itemId: AnyHashable? = nil) {
         guard !content.isSwiftUIEmptyView else {
             return
         }
         guard let key else {
-            RenderItem(content: content, level: level, context: context, modifier: modifier, styling: styling)
+            RenderItem(content: content, level: level, context: context, modifier: modifier, styling: styling, itemId: itemId)
             return
         }
         let editActionsModifier = EditActionsModifier.combined(for: content)
         let isDeleteEnabled = (editActions.contains(.delete) || onDelete != nil) && editActionsModifier.isDeleteDisabled != true
         let isMoveEnabled = (editActions.contains(.move) || onMove != nil) && editActionsModifier.isMoveDisabled != true
         guard isDeleteEnabled || isMoveEnabled else {
-            RenderItem(content: content, level: level, context: context, modifier: modifier, styling: styling)
+            RenderItem(content: content, level: level, context: context, modifier: modifier, styling: styling, itemId: itemId)
             return
         }
 
@@ -496,7 +636,7 @@ public final class List : View, Renderable {
                         Icon(imageVector: trashVector, contentDescription: "Delete", modifier = Modifier.padding(end: 24.dp), tint: androidx.compose.ui.graphics.Color.White)
                     }
                 }, content: {
-                    RenderItem(content: content, level: level, context: context, styling: styling)
+                    RenderItem(content: content, level: level, context: context, styling: styling, itemId: itemId)
                 })
             }
             if isMoveEnabled {
@@ -506,7 +646,7 @@ public final class List : View, Renderable {
             }
         } else {
             RenderReorderableItem(reorderableState: reorderableState, key: key, modifier: modifier) {
-                RenderItem(content: content, level: level, context: context, modifier: $0, styling: styling)
+                RenderItem(content: content, level: level, context: context, modifier: $0, styling: styling, itemId: itemId)
             }
         }
     }
@@ -708,6 +848,56 @@ public func List<Data, ObjectType>(_ data: Binding<Data>, id: (ObjectType) -> An
         let binding = Binding<ObjectType>(get: { data.wrappedValue[index] as! ObjectType }, set: { (data.wrappedValue as! skip.lib.MutableCollection<ObjectType>)[index] = $0 })
         return rowContent(binding)
     }, editActions: editActions)
+}
+
+// List constructors with single selection support
+public func List<ObjectType, SelectionValue>(_ data: any RandomAccessCollection<ObjectType>, selection: Binding<SelectionValue?>, @ViewBuilder rowContent: (ObjectType) -> any View) -> List where SelectionValue: Hashable {
+    let singleSelectionBinding = Binding<AnyHashable?>(
+        get: { selection.wrappedValue as? AnyHashable },
+        set: { newValue in 
+            if let value = newValue as? SelectionValue {
+                selection.wrappedValue = value
+            } else {
+                selection.wrappedValue = nil
+            }
+        }
+    )
+    return List(identifier: { ($0 as! Identifiable<Hashable>).id }, objects: data as! RandomAccessCollection<Any>, objectContent: { rowContent($0 as! ObjectType) }, singleSelection: singleSelectionBinding)
+}
+
+public func List<ObjectType, SelectionValue>(_ data: any RandomAccessCollection<ObjectType>, id: (ObjectType) -> AnyHashable?, selection: Binding<SelectionValue?>, @ViewBuilder rowContent: (ObjectType) -> any View) -> List where ObjectType: Any, SelectionValue: Hashable {
+    let singleSelectionBinding = Binding<AnyHashable?>(
+        get: { selection.wrappedValue as? AnyHashable },
+        set: { newValue in 
+            if let value = newValue as? SelectionValue {
+                selection.wrappedValue = value
+            } else {
+                selection.wrappedValue = nil
+            }
+        }
+    )
+    return List(identifier: { id($0 as! ObjectType) }, objects: data as! RandomAccessCollection<Any>, objectContent: { rowContent($0 as! ObjectType) }, singleSelection: singleSelectionBinding)
+}
+
+// List constructors with multi selection support
+public func List<ObjectType, SelectionValue>(_ data: any RandomAccessCollection<ObjectType>, selection: Binding<Set<SelectionValue>>, @ViewBuilder rowContent: (ObjectType) -> any View) -> List where SelectionValue: Hashable {
+    let multiSelectionBinding = Binding<Set<AnyHashable>>(
+        get: { Set(selection.wrappedValue.map { $0 as AnyHashable }) },
+        set: { newValue in
+            selection.wrappedValue = Set(newValue.compactMap { $0 as? SelectionValue })
+        }
+    )
+    return List(identifier: { ($0 as! Identifiable<Hashable>).id }, objects: data as! RandomAccessCollection<Any>, objectContent: { rowContent($0 as! ObjectType) }, multiSelection: multiSelectionBinding)
+}
+
+public func List<ObjectType, SelectionValue>(_ data: any RandomAccessCollection<ObjectType>, id: (ObjectType) -> AnyHashable?, selection: Binding<Set<SelectionValue>>, @ViewBuilder rowContent: (ObjectType) -> any View) -> List where ObjectType: Any, SelectionValue: Hashable {
+    let multiSelectionBinding = Binding<Set<AnyHashable>>(
+        get: { Set(selection.wrappedValue.map { $0 as AnyHashable }) },
+        set: { newValue in
+            selection.wrappedValue = Set(newValue.compactMap { $0 as? SelectionValue })
+        }
+    )
+    return List(identifier: { id($0 as! ObjectType) }, objects: data as! RandomAccessCollection<Any>, objectContent: { rowContent($0 as! ObjectType) }, multiSelection: multiSelectionBinding)
 }
 #endif
 
