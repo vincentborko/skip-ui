@@ -2,17 +2,23 @@
 // SPDX-License-Identifier: LGPL-3.0-only WITH LGPL-3.0-linking-exception
 #if !SKIP_BRIDGE
 #if SKIP
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.AnimationSpec
 import androidx.compose.animation.core.FiniteAnimationSpec
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideIn
 import androidx.compose.animation.slideOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
@@ -456,13 +462,48 @@ extension View {
         #endif
     }
 
-    @available(*, unavailable)
-    public func contentTransition(_ transition: Any /* ContentTransition */) -> any View {
-        fatalError()
+    // SKIP @bridge
+    public func contentTransition(_ transition: ContentTransition) -> any View {
+        #if SKIP
+        return ModifiedContent(content: self, modifier: ContentTransitionModifier(transition: transition))
+        #else
+        return self
+        #endif
     }
 }
 
 #if SKIP
+
+final class ContentTransitionModifier: RenderModifier {
+    let transition: ContentTransition
+
+    init(transition: ContentTransition) {
+        self.transition = transition
+        super.init()
+    }
+
+    @Composable override func Render(context: RenderContext) -> Bool {
+        let content = context.content
+        
+        switch transition.rawValue {
+        case 0: // .identity
+            content.Render(context: context)
+            return true
+        case 1: // .opacity
+            OpacityContentTransition(content: content, context: context)
+            return true
+        case 2: // .interpolate
+            InterpolateContentTransition(content: content, context: context)
+            return true
+        case 3: // .numericText
+            NumericTextContentTransition(content: content, context: context)
+            return true
+        default:
+            content.Render(context: context)
+            return true
+        }
+    }
+}
 
 final class TransitionModifier: RenderModifier {
     let transition: Transition
@@ -499,5 +540,44 @@ extension IntSize {
         return IntOffset(offset.x * -1, offset.y * -1)
     }
 }
+
+@Composable 
+func OpacityContentTransition(content: any View, context: RenderContext) {
+    AnimatedContent(
+        targetState: content.id,
+        transitionSpec: {
+            fadeIn(tween(300)) togetherWith fadeOut(tween(300))
+        }
+    ) { _ in
+        content.Render(context: context)
+    }
+}
+
+@Composable 
+func InterpolateContentTransition(content: any View, context: RenderContext) {
+    AnimatedContent(
+        targetState: content.id,
+        transitionSpec: {
+            fadeIn(tween(300)) togetherWith fadeOut(tween(300))
+        }
+    ) { _ in
+        content.Render(context: context)
+    }
+}
+
+@Composable 
+func NumericTextContentTransition(content: any View, context: RenderContext) {
+    // For now, implement as simple fade transition for numeric content
+    // TODO: Implement proper digit-by-digit animation when syntax is supported
+    AnimatedContent(
+        targetState: content.id,
+        transitionSpec: {
+            fadeIn(tween(300)) togetherWith fadeOut(tween(300))
+        }
+    ) { _ in
+        content.Render(context: context)
+    }
+}
+
 #endif
 #endif
