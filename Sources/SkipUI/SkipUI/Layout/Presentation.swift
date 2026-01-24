@@ -114,8 +114,16 @@ let overlayPresentationCornerRadius = 16.0
             var systemBarEdges: Edge.Set = isFullScreen ? .all : [.top, .bottom]
 
             let detentPreferences = rememberSaveable(stateSaver: context.stateSaver as! Saver<Preference<PresentationDetentPreferences>, Any>) { mutableStateOf(Preference<PresentationDetentPreferences>(key: PresentationDetentPreferenceKey.self)) }
-            let detentPreferencesCollector = PreferenceCollector<PresentationDetentPreferences>(key: PresentationDetentPreferences.self, state: detentPreferences)
+            let detentPreferencesCollector = PreferenceCollector<PresentationDetentPreferences>(key: PresentationDetentPreferenceKey.self, state: detentPreferences)
             let reducedDetentPreferences = detentPreferences.value.reduced
+
+            let dragIndicatorPreferences = rememberSaveable(stateSaver: context.stateSaver as! Saver<Preference<Visibility>, Any>) { mutableStateOf(Preference<Visibility>(key: PresentationDragIndicatorPreferenceKey.self)) }
+            let dragIndicatorPreferencesCollector = PreferenceCollector<Visibility>(key: PresentationDragIndicatorPreferenceKey.self, state: dragIndicatorPreferences)
+            let reducedDragIndicatorPreferences = dragIndicatorPreferences.value.reduced
+
+            let cornerRadiusPreferences = rememberSaveable(stateSaver: context.stateSaver as! Saver<Preference<CGFloat?>, Any>) { mutableStateOf(Preference<CGFloat?>(key: PresentationCornerRadiusPreferenceKey.self)) }
+            let cornerRadiusPreferencesCollector = PreferenceCollector<CGFloat?>(key: PresentationCornerRadiusPreferenceKey.self, state: cornerRadiusPreferences)
+            let reducedCornerRadiusPreferences = cornerRadiusPreferences.value.reduced
 
             if !isFullScreen && verticalSizeClass != .compact {
                 systemBarEdges.remove(.top)
@@ -145,8 +153,12 @@ let overlayPresentationCornerRadius = 16.0
                 topInset.value = inset
                 // Draw the drag handle and the presentation root content area below it
                 androidx.compose.foundation.layout.Spacer(modifier: Modifier.height(inset - handleHeight - handlePadding))
-                Row(modifier: Modifier.fillMaxWidth(), horizontalArrangement: Arrangement.Center) {
-                    Capsule().fill(Color.primary.opacity(0.4)).frame(width: 60.0, height: Double(handleHeight.value)).Compose(context: context)
+                
+                // Show drag indicator based on visibility preference
+                if reducedDragIndicatorPreferences == Visibility.visible || (reducedDragIndicatorPreferences == Visibility.automatic && detent != .large) {
+                    Row(modifier: Modifier.fillMaxWidth(), horizontalArrangement: Arrangement.Center) {
+                        Capsule().fill(Color.primary.opacity(0.4)).frame(width: 60.0, height: Double(handleHeight.value)).Compose(context: context)
+                    }
                 }
                 androidx.compose.foundation.layout.Spacer(modifier: Modifier.height(handlePadding))
             } else if !isEdgeToEdge {
@@ -160,7 +172,8 @@ let overlayPresentationCornerRadius = 16.0
                 topInset.value = 0.dp
             }
 
-            let clipShape = RoundedCornerShape(topStart: isFullScreen ? 0.dp : overlayPresentationCornerRadius.dp, topEnd: isFullScreen ? 0.dp : overlayPresentationCornerRadius.dp)
+            let customCornerRadius = reducedCornerRadiusPreferences ?? overlayPresentationCornerRadius
+            let clipShape = RoundedCornerShape(topStart: isFullScreen ? 0.dp : customCornerRadius.dp, topEnd: isFullScreen ? 0.dp : customCornerRadius.dp)
             Box(modifier: Modifier.weight(Float(1.0)).clip(clipShape).nestedScroll(DisableScrollToDismissConnection())) {
                 // Place outside of PresentationRoot recomposes
                 let stateSaver = remember { ComposeStateSaver() }
@@ -174,7 +187,7 @@ let overlayPresentationCornerRadius = 16.0
                         $0.setdismiss(DismissAction(action: { isPresented.set(false) }))
                         return ComposeResult.ok
                     } in: {
-                        PreferenceValues.shared.collectPreferences([interactiveDismissDisabledCollector, detentPreferencesCollector]) {
+                        PreferenceValues.shared.collectPreferences([interactiveDismissDisabledCollector, detentPreferencesCollector, dragIndicatorPreferencesCollector, cornerRadiusPreferencesCollector]) {
                             for renderable in contentRenderables {
                                 renderable.Render(context: context)
                             }
@@ -647,6 +660,25 @@ struct PresentationDetentPreferences: Equatable {
         return lhs.detent == rhs.detent
     }
 }
+
+struct PresentationDragIndicatorPreferenceKey: PreferenceKey {
+    static let defaultValue = Visibility.automatic
+
+    static func reduce(value: inout Visibility, nextValue: () -> Visibility) {
+        value = nextValue()
+    }
+}
+
+struct PresentationCornerRadiusPreferenceKey: PreferenceKey {
+    static let defaultValue: CGFloat? = nil
+
+    static func reduce(value: inout CGFloat?, nextValue: () -> CGFloat?) {
+        let next = nextValue()
+        if next != nil {
+            value = next
+        }
+    }
+}
 #endif
 
 extension View {
@@ -1000,14 +1032,28 @@ extension View {
         return presentationDetents(set)
     }
 
+    // SKIP @bridge
+    public func presentationDragIndicator(_ visibilityRawValue: Int) -> any View {
+        let visibility = Visibility(rawValue: visibilityRawValue) ?? .automatic
+        return presentationDragIndicator(visibility)
+    }
+
+    // SKIP @bridge
+    public func presentationCornerRadiusBridge(_ cornerRadius: CGFloat?) -> any View {
+        return presentationCornerRadius(cornerRadius)
+    }
+
     @available(*, unavailable)
     public func presentationDetents(_ detents: Set<PresentationDetent>, selection: Binding<PresentationDetent>) -> some View {
         return self
     }
 
-    @available(*, unavailable)
     public func presentationDragIndicator(_ visibility: Visibility) -> some View {
+        #if SKIP
+        return preference(key: PresentationDragIndicatorPreferenceKey.self, value: visibility)
+        #else
         return self
+        #endif
     }
 
     @available(*, unavailable)
@@ -1025,9 +1071,12 @@ extension View {
         return self
     }
 
-    @available(*, unavailable)
     public func presentationCornerRadius(_ cornerRadius: CGFloat?) -> some View {
+        #if SKIP
+        return preference(key: PresentationCornerRadiusPreferenceKey.self, value: cornerRadius)
+        #else
         return self
+        #endif
     }
 
     @available(*, unavailable)
