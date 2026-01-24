@@ -67,14 +67,50 @@ struct SafeArea: Equatable {
 #endif
 
 extension View {
-    @available(*, unavailable)
-    public func safeAreaInset(edge: VerticalEdge, alignment: HorizontalAlignment = .center, spacing: CGFloat? = nil, @ViewBuilder content: () -> any View) -> some View {
+    public func safeAreaInset(edge: VerticalEdge, alignment: HorizontalAlignment = .center, spacing: CGFloat? = nil, @ViewBuilder content: () -> any View) -> any View {
+        #if SKIP
+        return ModifiedContent(content: self, modifier: RenderModifier { renderable, context in
+            SafeAreaInsetLayout(content: renderable, context: context, insetContent: content(), edge: edge.asEdge(), alignment: alignment.asAlignment(), spacing: spacing)
+        })
+        #else
         return self
+        #endif
     }
 
-    @available(*, unavailable)
-    public func safeAreaInset(edge: HorizontalEdge, alignment: VerticalAlignment = .center, spacing: CGFloat? = nil, @ViewBuilder content: () -> any View) -> some View {
+    public func safeAreaInset(edge: HorizontalEdge, alignment: VerticalAlignment = .center, spacing: CGFloat? = nil, @ViewBuilder content: () -> any View) -> any View {
+        #if SKIP
+        return ModifiedContent(content: self, modifier: RenderModifier { renderable, context in
+            SafeAreaInsetLayout(content: renderable, context: context, insetContent: content(), edge: edge.asEdge(), alignment: alignment.asAlignment(), spacing: spacing)
+        })
+        #else
         return self
+        #endif
+    }
+
+    // SKIP @bridge
+    public func safeAreaInset(bridgedVerticalEdge: Int, horizontalAlignmentKey: String, spacing: CGFloat?, bridgedContent: any View) -> any View {
+        #if SKIP
+        let edge = VerticalEdge(rawValue: bridgedVerticalEdge) ?? .bottom
+        let alignment = HorizontalAlignment(key: horizontalAlignmentKey)
+        return ModifiedContent(content: self, modifier: RenderModifier { renderable, context in
+            SafeAreaInsetLayout(content: renderable, context: context, insetContent: bridgedContent, edge: edge.asEdge(), alignment: alignment.asAlignment(), spacing: spacing)
+        })
+        #else
+        return self
+        #endif
+    }
+
+    // SKIP @bridge
+    public func safeAreaInset(bridgedHorizontalEdge: Int, verticalAlignmentKey: String, spacing: CGFloat?, bridgedContent: any View) -> any View {
+        #if SKIP
+        let edge = HorizontalEdge(rawValue: bridgedHorizontalEdge) ?? .leading
+        let alignment = VerticalAlignment(key: verticalAlignmentKey)
+        return ModifiedContent(content: self, modifier: RenderModifier { renderable, context in
+            SafeAreaInsetLayout(content: renderable, context: context, insetContent: bridgedContent, edge: edge.asEdge(), alignment: alignment.asAlignment(), spacing: spacing)
+        })
+        #else
+        return self
+        #endif
     }
 
     @available(*, unavailable)
