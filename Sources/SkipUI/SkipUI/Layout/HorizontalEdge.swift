@@ -21,6 +21,17 @@ public enum HorizontalEdge : Int, CaseIterable, Codable, Hashable {
             self.rawValue = edge.rawValue
         }
     }
+
+    #if SKIP
+    func asEdge() -> Edge {
+        switch self {
+        case .leading:
+            return .leading
+        case .trailing:
+            return .trailing
+        }
+    }
+    #endif
 }
 
 #endif

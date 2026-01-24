@@ -43,6 +43,18 @@ public struct HorizontalAlignment : Equatable {
             return androidx.compose.ui.Alignment.CenterHorizontally
         }
     }
+
+    /// Convert to general Alignment for safe area inset layout.
+    func asAlignment() -> Alignment {
+        switch self {
+        case .leading:
+            return .leading
+        case .trailing:
+            return .trailing
+        default:
+            return .center
+        }
+    }
     #endif
 }
 

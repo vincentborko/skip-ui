@@ -320,6 +320,114 @@ private func constraint(_ value: Int, subtracting: Int) -> Int {
     return max(0, value - subtracting)
 }
 
+/// Layout a view with safe area inset content.
+@Composable func SafeAreaInsetLayout(content: Renderable, context: ComposeContext, insetContent: View, edge: Edge, alignment: Alignment, spacing: CGFloat?) {
+    let density = LocalDensity.current
+    let spacingPx = spacing != nil ? with(density) { spacing!.dp.roundToPx() } : 0
+    
+    ComposeContainer(modifier: context.modifier) { modifier in
+        Layout(modifier: modifier, content: {
+            // First the main content
+            content.Render(context: context.content())
+            // Then the inset content
+            ComposeContainer(fixedWidth: true, fixedHeight: true) { insetModifier in
+                insetContent.Compose(context: context.content(modifier: insetModifier))
+            }
+        }) { measurables, constraints in
+            guard measurables.size >= 2 else {
+                // If we don't have both content and inset, just render the content
+                if measurables.size == 1 {
+                    let contentPlaceable = measurables[0].measure(constraints)
+                    return layout(width: contentPlaceable.width, height: contentPlaceable.height) {
+                        contentPlaceable.placeRelative(x: 0, y: 0)
+                    }
+                }
+                return layout(width: 0, height: 0) {}
+            }
+            
+            // First measure the inset content without constraints to get its natural size
+            let insetPlaceable = measurables[1].measure(Constraints())
+            
+            // Calculate how much space the content should have based on the inset size and edge
+            var contentConstraints = constraints
+            switch edge {
+            case .top:
+                contentConstraints = constraints.copy(maxHeight: max(0, constraints.maxHeight - insetPlaceable.height - spacingPx))
+            case .bottom:
+                contentConstraints = constraints.copy(maxHeight: max(0, constraints.maxHeight - insetPlaceable.height - spacingPx))
+            case .leading:
+                contentConstraints = constraints.copy(maxWidth: max(0, constraints.maxWidth - insetPlaceable.width - spacingPx))
+            case .trailing:
+                contentConstraints = constraints.copy(maxWidth: max(0, constraints.maxWidth - insetPlaceable.width - spacingPx))
+            }
+            
+            // Measure the main content with the reduced constraints
+            let contentPlaceable = measurables[0].measure(contentConstraints)
+            
+            // Calculate total layout size
+            let totalWidth: Int
+            let totalHeight: Int
+            
+            switch edge {
+            case .top, .bottom:
+                totalWidth = max(contentPlaceable.width, insetPlaceable.width)
+                totalHeight = contentPlaceable.height + insetPlaceable.height + spacingPx
+            case .leading, .trailing:
+                totalWidth = contentPlaceable.width + insetPlaceable.width + spacingPx
+                totalHeight = max(contentPlaceable.height, insetPlaceable.height)
+            }
+            
+            return layout(width: totalWidth, height: totalHeight) {
+                // Place content and inset based on edge
+                switch edge {
+                case .top:
+                    // Inset at top, content below
+                    let insetX = placeInsetContent(insetWidth: insetPlaceable.width, containerWidth: totalWidth, alignment: alignment)
+                    insetPlaceable.placeRelative(x: insetX, y: 0)
+                    contentPlaceable.placeRelative(x: 0, y: insetPlaceable.height + spacingPx)
+                case .bottom:
+                    // Content at top, inset at bottom
+                    contentPlaceable.placeRelative(x: 0, y: 0)
+                    let insetX = placeInsetContent(insetWidth: insetPlaceable.width, containerWidth: totalWidth, alignment: alignment)
+                    insetPlaceable.placeRelative(x: insetX, y: contentPlaceable.height + spacingPx)
+                case .leading:
+                    // Inset at leading, content at trailing
+                    let insetY = placeInsetContent(insetHeight: insetPlaceable.height, containerHeight: totalHeight, alignment: alignment)
+                    insetPlaceable.placeRelative(x: 0, y: insetY)
+                    contentPlaceable.placeRelative(x: insetPlaceable.width + spacingPx, y: 0)
+                case .trailing:
+                    // Content at leading, inset at trailing
+                    contentPlaceable.placeRelative(x: 0, y: 0)
+                    let insetY = placeInsetContent(insetHeight: insetPlaceable.height, containerHeight: totalHeight, alignment: alignment)
+                    insetPlaceable.placeRelative(x: contentPlaceable.width + spacingPx, y: insetY)
+                }
+            }
+        }
+    }
+}
+
+private func placeInsetContent(insetWidth: Int, containerWidth: Int, alignment: Alignment) -> Int {
+    switch alignment {
+    case .leading, .leadingFirstTextBaseline, .leadingLastTextBaseline, .topLeading, .bottomLeading:
+        return 0
+    case .trailing, .trailingFirstTextBaseline, .trailingLastTextBaseline, .topTrailing, .bottomTrailing:
+        return containerWidth - insetWidth
+    default:
+        return (containerWidth - insetWidth) / 2
+    }
+}
+
+private func placeInsetContent(insetHeight: Int, containerHeight: Int, alignment: Alignment) -> Int {
+    switch alignment {
+    case .top, .topLeading, .topTrailing:
+        return 0
+    case .bottom, .bottomLeading, .bottomTrailing:
+        return containerHeight - insetHeight
+    default:
+        return (containerHeight - insetHeight) / 2
+    }
+}
+
 private func placeContent(width: Int, height: Int, inWidth: Int, inHeight: Int, alignment: Alignment) -> (Int, Int) {
     let centerX = (inWidth - width) / 2
     let centerY = (inHeight - height) / 2
@@ -342,6 +450,17 @@ private func placeContent(width: Int, height: Int, inWidth: Int, inHeight: Int, 
         return (inWidth - width, inHeight - height)
     default:
         return (centerX, centerY)
+    }
+}
+
+extension Edge {
+    var isVertical: Bool {
+        switch self {
+        case .top, .bottom:
+            return true
+        default:
+            return false
+        }
     }
 }
 

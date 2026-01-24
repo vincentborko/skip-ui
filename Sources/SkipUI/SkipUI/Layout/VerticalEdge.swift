@@ -21,6 +21,17 @@ public enum VerticalEdge : Int, Hashable, CaseIterable, Codable {
             self.init(rawValue: e.rawValue)
         }
     }
+
+    #if SKIP
+    func asEdge() -> Edge {
+        switch self {
+        case .top:
+            return .top
+        case .bottom:
+            return .bottom
+        }
+    }
+    #endif
 }
 
 #endif

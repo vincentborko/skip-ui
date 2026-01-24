@@ -43,6 +43,18 @@ public struct VerticalAlignment : Equatable {
             return androidx.compose.ui.Alignment.CenterVertically
         }
     }
+
+    /// Convert to general Alignment for safe area inset layout.
+    func asAlignment() -> Alignment {
+        switch self {
+        case .top:
+            return .top
+        case .bottom:
+            return .bottom
+        default:
+            return .center
+        }
+    }
     #endif
 }
 
