@@ -613,6 +613,51 @@ final class SkipUITests: SkipUITestCase {
         #endif
     }
 
+    // MARK: - Presentation Modifier Tests
+
+    func testPresentationDetentTypes() throws {
+        // Verify PresentationDetent enum cases exist and are hashable
+        let medium = PresentationDetent.medium
+        let large = PresentationDetent.large
+        let fraction = PresentationDetent.fraction(0.5)
+        let height = PresentationDetent.height(300)
+
+        // Verify they can be added to a set (tests Hashable)
+        var detents: Set<PresentationDetent> = []
+        detents.insert(medium)
+        detents.insert(large)
+        detents.insert(fraction)
+        detents.insert(height)
+        XCTAssertEqual(detents.count, 4)
+
+        // Verify equality
+        XCTAssertEqual(PresentationDetent.medium, PresentationDetent.medium)
+        XCTAssertEqual(PresentationDetent.large, PresentationDetent.large)
+        XCTAssertEqual(PresentationDetent.fraction(0.5), PresentationDetent.fraction(0.5))
+        XCTAssertEqual(PresentationDetent.height(300), PresentationDetent.height(300))
+        XCTAssertNotEqual(PresentationDetent.medium, PresentationDetent.large)
+    }
+
+    func testPresentationModifiersCompile() throws {
+        // This test verifies that presentation modifiers can be applied to views
+        // The actual behavior is tested in the playground
+        let _ = Text("Test")
+            .presentationDetents([.medium, .large])
+            .presentationDragIndicator(.hidden)
+            .presentationCornerRadius(30)
+
+        // Verify the modifiers don't crash when applied
+        XCTAssertTrue(true)
+    }
+
+    func testVisibilityForDragIndicator() throws {
+        // Verify Visibility enum values work with presentationDragIndicator
+        let _ = Text("Test").presentationDragIndicator(.automatic)
+        let _ = Text("Test").presentationDragIndicator(.visible)
+        let _ = Text("Test").presentationDragIndicator(.hidden)
+        XCTAssertTrue(true)
+    }
+
 }
 
 

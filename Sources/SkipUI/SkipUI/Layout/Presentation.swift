@@ -117,6 +117,14 @@ let overlayPresentationCornerRadius = 16.0
             let detentPreferencesCollector = PreferenceCollector<PresentationDetentPreferences>(key: PresentationDetentPreferences.self, state: detentPreferences)
             let reducedDetentPreferences = detentPreferences.value.reduced
 
+            let dragIndicatorPreference = rememberSaveable(stateSaver: context.stateSaver as! Saver<Preference<Visibility>, Any>) { mutableStateOf(Preference<Visibility>(key: PresentationDragIndicatorPreferenceKey.self)) }
+            let dragIndicatorCollector = PreferenceCollector<Visibility>(key: Visibility.self, state: dragIndicatorPreference)
+            let dragIndicatorVisibility = dragIndicatorPreference.value.reduced
+
+            let cornerRadiusPreference = rememberSaveable(stateSaver: context.stateSaver as! Saver<Preference<CGFloat?>, Any>) { mutableStateOf(Preference<CGFloat?>(key: PresentationCornerRadiusPreferenceKey.self)) }
+            let cornerRadiusCollector = PreferenceCollector<CGFloat?>(key: PresentationCornerRadiusPreferenceKey.self, state: cornerRadiusPreference)
+            let customCornerRadius = cornerRadiusPreference.value.reduced
+
             if !isFullScreen && verticalSizeClass != .compact {
                 systemBarEdges.remove(.top)
                 if !isEdgeToEdge {
@@ -144,11 +152,17 @@ let overlayPresentationCornerRadius = 16.0
 
                 topInset.value = inset
                 // Draw the drag handle and the presentation root content area below it
-                androidx.compose.foundation.layout.Spacer(modifier: Modifier.height(inset - handleHeight - handlePadding))
-                Row(modifier: Modifier.fillMaxWidth(), horizontalArrangement: Arrangement.Center) {
-                    Capsule().fill(Color.primary.opacity(0.4)).frame(width: 60.0, height: Double(handleHeight.value)).Compose(context: context)
+                let showDragIndicator = dragIndicatorVisibility != Visibility.hidden
+                if showDragIndicator {
+                    androidx.compose.foundation.layout.Spacer(modifier: Modifier.height(inset - handleHeight - handlePadding))
+                    Row(modifier: Modifier.fillMaxWidth(), horizontalArrangement: Arrangement.Center) {
+                        Capsule().fill(Color.primary.opacity(0.4)).frame(width: 60.0, height: Double(handleHeight.value)).Compose(context: context)
+                    }
+                    androidx.compose.foundation.layout.Spacer(modifier: Modifier.height(handlePadding))
+                } else {
+                    // When drag indicator is hidden, just add the inset without the handle
+                    androidx.compose.foundation.layout.Spacer(modifier: Modifier.height(inset))
                 }
-                androidx.compose.foundation.layout.Spacer(modifier: Modifier.height(handlePadding))
             } else if !isEdgeToEdge {
                 systemBarEdges.remove(.top)
                 systemBarEdges.remove(.bottom)
@@ -160,7 +174,8 @@ let overlayPresentationCornerRadius = 16.0
                 topInset.value = 0.dp
             }
 
-            let clipShape = RoundedCornerShape(topStart: isFullScreen ? 0.dp : overlayPresentationCornerRadius.dp, topEnd: isFullScreen ? 0.dp : overlayPresentationCornerRadius.dp)
+            let effectiveCornerRadius = customCornerRadius ?? overlayPresentationCornerRadius
+            let clipShape = RoundedCornerShape(topStart: isFullScreen ? 0.dp : effectiveCornerRadius.dp, topEnd: isFullScreen ? 0.dp : effectiveCornerRadius.dp)
             Box(modifier: Modifier.weight(Float(1.0)).clip(clipShape).nestedScroll(DisableScrollToDismissConnection())) {
                 // Place outside of PresentationRoot recomposes
                 let stateSaver = remember { ComposeStateSaver() }
@@ -174,7 +189,7 @@ let overlayPresentationCornerRadius = 16.0
                         $0.setdismiss(DismissAction(action: { isPresented.set(false) }))
                         return ComposeResult.ok
                     } in: {
-                        PreferenceValues.shared.collectPreferences([interactiveDismissDisabledCollector, detentPreferencesCollector]) {
+                        PreferenceValues.shared.collectPreferences([interactiveDismissDisabledCollector, detentPreferencesCollector, dragIndicatorCollector, cornerRadiusCollector]) {
                             for renderable in contentRenderables {
                                 renderable.Render(context: context)
                             }
@@ -647,6 +662,22 @@ struct PresentationDetentPreferences: Equatable {
         return lhs.detent == rhs.detent
     }
 }
+
+struct PresentationDragIndicatorPreferenceKey: PreferenceKey {
+    static let defaultValue: Visibility = .automatic
+
+    static func reduce(value: inout Visibility, nextValue: () -> Visibility) {
+        value = nextValue()
+    }
+}
+
+struct PresentationCornerRadiusPreferenceKey: PreferenceKey {
+    static let defaultValue: CGFloat? = nil
+
+    static func reduce(value: inout CGFloat?, nextValue: () -> CGFloat?) {
+        value = nextValue()
+    }
+}
 #endif
 
 extension View {
@@ -1005,9 +1036,17 @@ extension View {
         return self
     }
 
-    @available(*, unavailable)
     public func presentationDragIndicator(_ visibility: Visibility) -> some View {
+        #if SKIP
+        return preference(key: PresentationDragIndicatorPreferenceKey.self, value: visibility)
+        #else
         return self
+        #endif
+    }
+
+    // SKIP @bridge
+    public func presentationDragIndicator(bridgedVisibility: Int) -> any View {
+        return presentationDragIndicator(Visibility(rawValue: bridgedVisibility) ?? Visibility.automatic)
     }
 
     @available(*, unavailable)
@@ -1025,9 +1064,13 @@ extension View {
         return self
     }
 
-    @available(*, unavailable)
-    public func presentationCornerRadius(_ cornerRadius: CGFloat?) -> some View {
+    // SKIP @bridge
+    public func presentationCornerRadius(_ cornerRadius: CGFloat?) -> any View {
+        #if SKIP
+        return preference(key: PresentationCornerRadiusPreferenceKey.self, value: cornerRadius)
+        #else
         return self
+        #endif
     }
 
     @available(*, unavailable)
