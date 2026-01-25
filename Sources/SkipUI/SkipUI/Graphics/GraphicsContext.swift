@@ -332,7 +332,7 @@ public struct GraphicsContext {
         
         var combinedPath = state.clipPaths.first!
         for i in 1..<state.clipPaths.size {
-            val newPath = Path()
+            let newPath = Path()
             newPath.op(combinedPath, state.clipPaths[i], PathOperation.Intersect)
             combinedPath = newPath
         }

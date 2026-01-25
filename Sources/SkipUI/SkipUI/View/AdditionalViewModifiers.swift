@@ -1197,9 +1197,30 @@ extension View {
         return self
     }
 
-    @available(*, unavailable)
     public func symbolEffectsRemoved(_ isEnabled: Bool = true) -> some View {
+        #if SKIP
+        return ModifiedContent(content: self, modifier: SymbolEffectsRemovedModifier(isEnabled: isEnabled))
+        #else
         return self
+        #endif
+    }
+    
+    // SKIP @bridge
+    public func symbolEffect<T>(_ effect: T, options: SymbolEffectOptions = .default, isActive: Bool = true) -> some View where T: IndefiniteSymbolEffect, T: SymbolEffect {
+        #if SKIP
+        return ModifiedContent(content: self, modifier: IndefiniteSymbolEffectModifier(effect: effect, options: options, isActive: isActive))
+        #else
+        return self
+        #endif
+    }
+    
+    // SKIP @bridge
+    public func symbolEffect<T, U>(_ effect: T, options: SymbolEffectOptions = .default, value: U) -> some View where T: DiscreteSymbolEffect, T: SymbolEffect, U: Equatable {
+        #if SKIP
+        return ModifiedContent(content: self, modifier: DiscreteSymbolEffectModifier(effect: effect, options: options, value: value))
+        #else
+        return self
+        #endif
     }
 
     // SKIP @bridge
