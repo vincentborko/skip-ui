@@ -80,6 +80,7 @@ extension Transition {
     #endif
 }
 
+// SKIP @bridge
 public struct ContentTransition : RawRepresentable, Equatable {
     public let rawValue: Int
 
@@ -463,6 +464,7 @@ extension View {
     }
 
     // SKIP @bridge
+    // SKIP @bridge
     public func contentTransition(_ transition: ContentTransition) -> any View {
         #if SKIP
         return ModifiedContent(content: self, modifier: ContentTransitionModifier(transition: transition))
@@ -546,7 +548,7 @@ func OpacityContentTransition(content: any View, context: RenderContext) {
     AnimatedContent(
         targetState: content.id,
         transitionSpec: {
-            fadeIn(tween(300)) togetherWith fadeOut(tween(300))
+            fadeIn(tween(300)).togetherWith(fadeOut(tween(300)))
         }
     ) { _ in
         content.Render(context: context)
@@ -558,7 +560,7 @@ func InterpolateContentTransition(content: any View, context: RenderContext) {
     AnimatedContent(
         targetState: content.id,
         transitionSpec: {
-            fadeIn(tween(300)) togetherWith fadeOut(tween(300))
+            fadeIn(tween(300)).togetherWith(fadeOut(tween(300)))
         }
     ) { _ in
         content.Render(context: context)
@@ -572,7 +574,7 @@ func NumericTextContentTransition(content: any View, context: RenderContext) {
     AnimatedContent(
         targetState: content.id,
         transitionSpec: {
-            fadeIn(tween(300)) togetherWith fadeOut(tween(300))
+            fadeIn(tween(300)).togetherWith(fadeOut(tween(300)))
         }
     ) { _ in
         content.Render(context: context)
