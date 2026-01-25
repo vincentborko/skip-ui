@@ -94,11 +94,4 @@ extension Canvas : View {
     public var body: Body { fatalError() }
 }
 
-/// A working color space and storage format of a canvas.
-public enum ColorRenderingMode : Hashable {
-    case nonLinear
-    case linear
-    case extendedLinear
-}
-
 #endif
