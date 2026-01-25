@@ -88,10 +88,10 @@ public struct BounceSymbolEffect: IndefiniteSymbolEffect, DiscreteSymbolEffect {
         
         // For discrete effects with repeat count
         if isActive && options.repeatCount != nil {
-            var bounceCount by remember { mutableIntStateOf(0) }
+            var bounceCount = remember { mutableIntStateOf(0) }
             LaunchedEffect(isActive) {
                 for _ in 0..<(options.repeatCount ?? 1) {
-                    bounceCount += 1
+                    bounceCount.value += 1
                     delay(animationDuration.toLong())
                 }
             }

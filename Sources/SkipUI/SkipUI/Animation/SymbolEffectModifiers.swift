@@ -44,23 +44,23 @@ struct DiscreteSymbolEffectModifier<T: DiscreteSymbolEffect & SymbolEffect, U: E
     let value: U
     
     @Composable public override func Render(context: ComposeContext) {
-        var previousValue by remember { mutableStateOf(value) }
-        var triggerEffect by remember { mutableStateOf(false) }
+        var previousValue = remember { mutableStateOf(value) }
+        var triggerEffect = remember { mutableStateOf(false) }
         
         // Detect value changes
         LaunchedEffect(value) {
-            if value != previousValue {
-                previousValue = value
-                triggerEffect = true
+            if value != previousValue.value {
+                previousValue.value = value
+                triggerEffect.value = true
                 
                 // Reset after animation completes
                 kotlinx.coroutines.delay((500 / options.speed).toLong())
-                triggerEffect = false
+                triggerEffect.value = false
             }
         }
         
         let modifier = remember { Modifier }
-        let effectModifier = effect.apply(modifier: modifier, isActive: triggerEffect, options: options)
+        let effectModifier = effect.apply(modifier: modifier, isActive: triggerEffect.value, options: options)
         
         // Apply the effect modifier to the content
         ComposeContainer(modifier: effectModifier) {
