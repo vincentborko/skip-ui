@@ -565,7 +565,7 @@ extension GraphicsContext {
         /// A shading instance that fills with the foreground style from the graphics context's environment.
         public static var foreground: GraphicsContext.Shading {
             #if SKIP
-            let foregroundColor = EnvironmentValues.shared._foreground?.colorImpl() ?: androidx.compose.ui.graphics.Color.Black
+            let foregroundColor = EnvironmentValues.shared._foreground?.colorImpl() ?? androidx.compose.ui.graphics.Color.Black
             return Shading { Brush.linearGradient(listOf(foregroundColor, foregroundColor)) }
             #else
             return Shading()

@@ -1097,7 +1097,6 @@ extension View {
         #endif
     }
 
-    // SKIP @bridge
     public func presentationBackgroundInteraction(_ interaction: PresentationBackgroundInteraction) -> some View {
         #if SKIP
         return preference(key: PresentationBackgroundInteractionPreferenceKey.self, value: interaction)
@@ -1106,7 +1105,6 @@ extension View {
         #endif
     }
 
-    // SKIP @bridge
     public func presentationCompactAdaptation(_ adaptation: PresentationAdaptation) -> some View {
         #if SKIP
         return preference(key: PresentationCompactAdaptationPreferenceKey.self, value: adaptation)
@@ -1115,7 +1113,6 @@ extension View {
         #endif
     }
 
-    // SKIP @bridge
     public func presentationCompactAdaptation(horizontal horizontalAdaptation: PresentationAdaptation, vertical verticalAdaptation: PresentationAdaptation) -> some View {
         #if SKIP
         return preference(key: PresentationCompactAdaptationPreferenceKey.self, value: horizontalAdaptation)

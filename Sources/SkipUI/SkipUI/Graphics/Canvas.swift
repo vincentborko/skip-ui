@@ -62,6 +62,7 @@ public struct Canvas<Symbols> where Symbols : View {
     public typealias Body = NeverView
 }
 
+#if !SKIP
 extension Canvas where Symbols == EmptyView {
     /// Creates and configures a canvas.
     public init(opaque: Bool = false, colorMode: ColorRenderingMode = .nonLinear, rendersAsynchronously: Bool = false, renderer: @escaping (inout GraphicsContext, CGSize) -> Void) {
@@ -72,6 +73,7 @@ extension Canvas where Symbols == EmptyView {
         self.symbols = EmptyView()
     }
 }
+#endif
 
 #if SKIP
 extension Canvas : Renderable {
@@ -79,7 +81,7 @@ extension Canvas : Renderable {
         let density = LocalDensity.current
         let textMeasurer = rememberTextMeasurer()
         
-        Canvas(modifier: context.modifier) { drawScope ->
+        Canvas(modifier: context.modifier) { drawScope in
             let size = CGSize(width: CGFloat(drawScope.size.width / density.density), height: CGFloat(drawScope.size.height / density.density))
             var graphicsContext = GraphicsContext(drawScope: drawScope, density: density, textMeasurer: textMeasurer, size: size)
             renderer(&graphicsContext, size)
