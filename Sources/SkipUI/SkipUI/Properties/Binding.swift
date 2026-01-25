@@ -135,4 +135,23 @@ extension Binding : RandomAccessCollection where Value : MutableCollection, Valu
 //}
 
 #endif
+
+#else
+// SKIP_BRIDGE mode - provide minimal definition for bridge generation
+public struct Binding<Value> {
+    public let get: () -> Value
+    public let set: (Value) -> Void
+
+    public init(get: @escaping () -> Value, set: @escaping (Value) -> Void) {
+        self.get = get
+        self.set = set
+    }
+    
+    public var wrappedValue: Value { 
+        get { get() }
+        nonmutating set { set(newValue) }
+    }
+    
+    public var projectedValue: Binding<Value> { self }
+}
 #endif

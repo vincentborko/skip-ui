@@ -108,4 +108,24 @@ public struct MoveKeyframe<Value> : KeyframeTrackContent where Value : Animatabl
         #endif
     }
 }
+
+#else
+// SKIP_BRIDGE mode - provide minimal definitions for bridge generation
+public struct LinearKeyframe<Value> : KeyframeTrackContent where Value : Animatable {
+    public init(_ value: Value, duration: TimeInterval = 0.0) { }
+}
+
+public struct CubicKeyframe<Value> : KeyframeTrackContent where Value : Animatable {
+    public init(_ value: Value, duration: TimeInterval = 0.0) { }
+    public init(_ value: Value, duration: TimeInterval = 0.0, x1: Double, y1: Double, x2: Double, y2: Double) { }
+}
+
+public struct SpringKeyframe<Value> : KeyframeTrackContent where Value : Animatable {
+    public init(_ value: Value, spring: Spring = Spring()) { }
+    public init(_ value: Value, duration: TimeInterval, spring: Spring = Spring()) { }
+}
+
+public struct MoveKeyframe<Value> : KeyframeTrackContent where Value : Animatable {
+    public init(_ value: Value) { }
+}
 #endif

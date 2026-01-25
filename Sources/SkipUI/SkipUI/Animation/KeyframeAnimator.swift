@@ -182,4 +182,36 @@ struct CombinedKeyframeContent : KeyframeTrackContent {
     let second: Any
 }
 #endif
+
+#else
+// SKIP_BRIDGE mode - provide minimal definitions for bridge generation
+public protocol Keyframes {
+    // Protocol for keyframes
+}
+
+public protocol KeyframeTrackContent {
+    // Protocol for keyframe track content  
+}
+
+public struct KeyframeAnimator<Value, KeyframePath, Content> : View 
+    where Value : Animatable, KeyframePath : Keyframes, Content : View {
+    public init(initialValue: Value, @ViewBuilder content: @escaping (KeyframeAnimatorContext<Value>) -> Content, @ViewBuilder keyframes: @escaping (Value) -> some View) { }
+    public var body: some View { EmptyView() }
+}
+
+public struct KeyframeAnimatorContext<Value> where Value : Animatable {
+    public var value: Value { fatalError() }
+    public var velocity: Value { fatalError() }
+}
+
+public struct KeyframeTrack<Value, Root> : Keyframes where Value : Animatable {
+    public init(_ keyPath: WritableKeyPath<Root, Value>, @ViewBuilder content: () -> some View) { }
+}
+
+@resultBuilder
+public struct KeyframesBuilder<Value> where Value : Animatable {
+    public static func buildBlock<Content>(_ content: Content) -> some View where Content : View {
+        return EmptyView()
+    }
+}
 #endif

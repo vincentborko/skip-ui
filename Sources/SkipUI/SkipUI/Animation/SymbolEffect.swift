@@ -43,7 +43,6 @@ public protocol DiscreteSymbolEffect: SymbolEffect {
 }
 
 /// Options for symbol effects
-// SKIP @bridge
 public struct SymbolEffectOptions: Equatable {
     public let speed: Double
     public let repeatCount: Int?
@@ -394,6 +393,12 @@ public protocol DiscreteSymbolEffect: SymbolEffect {}
 
 public struct SymbolEffectOptions: Equatable {
     public static let `default` = SymbolEffectOptions()
+    public static func speed(_ speed: Double) -> SymbolEffectOptions { SymbolEffectOptions() }
+    public func speed(_ speed: Double) -> SymbolEffectOptions { self }
+    public static func `repeat`(_ count: Int) -> SymbolEffectOptions { SymbolEffectOptions() }
+    public func `repeat`(_ count: Int) -> SymbolEffectOptions { self }
+    public static var repeating: SymbolEffectOptions { SymbolEffectOptions() }
+    public var repeating: SymbolEffectOptions { self }
 }
 
 // These structs need to exist for the bridge but don't need implementation
