@@ -131,6 +131,31 @@ public final class List : View, Renderable {
         self.singleSelectionBinding = singleSelectionBinding
         self.multiSelectionBinding = multiSelectionBinding
     }
+    
+    // SKIP @bridge
+    public init(bridgedContent: any View, getSingleSelection: (() -> AnyHashable?)? = nil, setSingleSelection: ((AnyHashable?) -> Void)? = nil, getMultiSelection: (() -> Set<AnyHashable>)? = nil, setMultiSelection: ((Set<AnyHashable>) -> Void)? = nil) {
+        if let forEach = bridgedContent as? ForEach {
+            self.fixedContent = nil
+            self.forEach = forEach
+        } else {
+            self.fixedContent = ComposeBuilder.from { bridgedContent }
+            self.forEach = nil
+        }
+        self.itemTransformer = nil
+        
+        // Convert closure-based parameters to bindings
+        if let getSingle = getSingleSelection, let setSingle = setSingleSelection {
+            self.singleSelectionBinding = Binding<AnyHashable?>(get: getSingle, set: setSingle)
+        } else {
+            self.singleSelectionBinding = nil
+        }
+        
+        if let getMulti = getMultiSelection, let setMulti = setMultiSelection {
+            self.multiSelectionBinding = Binding<Set<AnyHashable>>(get: getMulti, set: setMulti)
+        } else {
+            self.multiSelectionBinding = nil
+        }
+    }
 
     #if SKIP
     // SKIP INSERT: @OptIn(ExperimentalMaterialApi::class)
