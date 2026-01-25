@@ -400,7 +400,7 @@ extension View {
         #endif
     }
 
-    @available(*, unavailable)
+    @available(*, unavailable, message: "scrollPosition(initialAnchor:) is not supported - UnitPoint bridging limitations make this complex to implement. Use scrollPosition(id:) for position binding instead.")
     public func scrollPosition(initialAnchor: UnitPoint?) -> some View {
         return self
     }
@@ -430,7 +430,7 @@ extension View {
         return self
     }
 
-    @available(*, unavailable)
+    @available(*, unavailable, message: "defaultScrollAnchor(_:) is not supported - UnitPoint bridging limitations make this complex to implement. Use scrollPosition(id:) for position control instead.")
     public func defaultScrollAnchor(_ anchor: UnitPoint?) -> some View {
         return self
     }
