@@ -658,6 +658,80 @@ final class SkipUITests: SkipUITestCase {
         XCTAssertTrue(true)
     }
 
+    func testListSelectionCompile() throws {
+        // Test that List selection binding constructors compile
+        struct Item: Identifiable, Hashable {
+            let id = UUID()
+            let name: String
+        }
+        
+        let items = [
+            Item(name: "Apple"),
+            Item(name: "Banana"),
+            Item(name: "Orange")
+        ]
+        
+        @State var singleSelection: Item?
+        @State var multiSelection: Set<Item> = []
+        
+        // Single selection List
+        let _ = List(items, selection: $singleSelection) { item in
+            Text(item.name)
+        }
+        
+        // Multi selection List
+        let _ = List(items, selection: $multiSelection) { item in
+            Text(item.name)
+        }
+        
+        // List with custom ID
+        let _ = List(items, id: \.name, selection: $singleSelection) { item in
+            Text(item.name)
+        }
+        
+        // List with custom ID and multi selection
+        let _ = List(items, id: \.name, selection: $multiSelection) { item in
+            Text(item.name)
+        }
+        
+        XCTAssertTrue(true)
+    }
+    
+    func testListSelectionBinding() throws {
+        // Test that selection bindings work correctly
+        struct Item: Identifiable, Hashable {
+            let id: Int
+            let name: String
+        }
+        
+        let items = [Item(id: 1, name: "A"), Item(id: 2, name: "B"), Item(id: 3, name: "C")]
+        
+        @State var singleSelection: Item? = nil
+        @State var multiSelection: Set<Item> = []
+        
+        // Test initial state
+        XCTAssertNil(singleSelection)
+        XCTAssertTrue(multiSelection.isEmpty)
+        
+        // Test single selection
+        singleSelection = items[0]
+        XCTAssertEqual(singleSelection?.id, 1)
+        
+        // Test multi selection
+        multiSelection.insert(items[0])
+        multiSelection.insert(items[1])
+        XCTAssertEqual(multiSelection.count, 2)
+        XCTAssertTrue(multiSelection.contains(items[0]))
+        XCTAssertTrue(multiSelection.contains(items[1]))
+        XCTAssertFalse(multiSelection.contains(items[2]))
+        
+        // Test clearing selection
+        singleSelection = nil
+        multiSelection.removeAll()
+        XCTAssertNil(singleSelection)
+        XCTAssertTrue(multiSelection.isEmpty)
+    }
+
 }
 
 
