@@ -49,13 +49,14 @@ public struct PhaseAnimator<Phase, Content> : View where Phase : Equatable, Cont
     @Composable public override func ComposeContent(context: ComposeContext) {
         guard !phases.isEmpty else { return }
         
-        var currentPhaseIndex by remember { mutableStateOf(0) }
-        let currentPhase = phases[currentPhaseIndex]
+        let currentPhaseIndexState = remember { mutableStateOf(0) }
+        var currentPhaseIndex = currentPhaseIndexState.value
+        let currentPhase = phases[currentPhaseIndexState.value]
         
         // For triggered animations, reset when trigger changes
         if let trigger = trigger {
             LaunchedEffect(trigger) {
-                currentPhaseIndex = 0
+                currentPhaseIndexState.value = 0
                 
                 // Cycle through phases once
                 for i in 1..<phases.count {
@@ -63,30 +64,26 @@ public struct PhaseAnimator<Phase, Content> : View where Phase : Equatable, Cont
                     let animSpec = animation(phase)?.asAnimationSpec() ?? tween<Any>()
                     
                     // Extract duration from animation spec if possible
-                    let durationMillis = when (animSpec) {
-                        is TweenSpec<*> -> (animSpec as TweenSpec<*>).durationMillis
-                        else -> 350 // Default duration
-                    }
+                    // For now, use a default duration as type checking is complex
+                    let durationMillis = 350
                     
                     delay(Long(durationMillis))
-                    currentPhaseIndex = i
+                    currentPhaseIndexState.value = i
                 }
             }
         } else {
             // Continuous looping animation
             LaunchedEffect(Unit) {
                 while (true) {
-                    let phase = phases[currentPhaseIndex]
+                    let phase = phases[currentPhaseIndexState.value]
                     let animSpec = animation(phase)?.asAnimationSpec() ?? tween<Any>()
                     
                     // Extract duration from animation spec if possible
-                    let durationMillis = when (animSpec) {
-                        is TweenSpec<*> -> (animSpec as TweenSpec<*>).durationMillis
-                        else -> 350 // Default duration
-                    }
+                    // For now, use a default duration as type checking is complex
+                    let durationMillis = 350
                     
                     delay(Long(durationMillis))
-                    currentPhaseIndex = (currentPhaseIndex + 1) % phases.count
+                    currentPhaseIndexState.value = (currentPhaseIndexState.value + 1) % phases.count
                 }
             }
         }

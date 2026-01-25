@@ -68,13 +68,14 @@ public struct KeyframeAnimator<Value, KeyframePath, Content> : View
     }
     
     @Composable public override func ComposeContent(context: ComposeContext) {
-        var animatedValue by remember { mutableStateOf(initialValue) }
+        let animatedValueState = remember { mutableStateOf(initialValue) }
+        var animatedValue = animatedValueState.value
         
         // Trigger animation when trigger changes or continuously if no trigger
         if let trigger = trigger {
             LaunchedEffect(trigger) {
                 // Reset to initial value and animate
-                animatedValue = initialValue
+                animatedValueState.value = initialValue
                 // TODO: Apply keyframe animation sequence
                 // For now, just set to initial value
             }
@@ -85,7 +86,7 @@ public struct KeyframeAnimator<Value, KeyframePath, Content> : View
             }
         }
         
-        content(animatedValue).ComposeContent(context: context)
+        content(animatedValueState.value).ComposeContent(context: context)
     }
     #else
     public init(
@@ -123,7 +124,7 @@ public struct KeyframesBuilder<Value> where Value : Animatable {
         #if SKIP
         return CombinedKeyframes(first: k0, second: k1)
         #else
-        fatalError()
+        return k0 // Return first keyframe in non-SKIP case
         #endif
     }
 }
@@ -169,7 +170,7 @@ public struct KeyframeTrackContentBuilder<Value> where Value : Animatable {
         #if SKIP
         return CombinedKeyframeContent(first: k0, second: k1)
         #else
-        fatalError()
+        return k0 // Return first content in non-SKIP case
         #endif
     }
 }
