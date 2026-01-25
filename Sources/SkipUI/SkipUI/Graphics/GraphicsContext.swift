@@ -573,7 +573,7 @@ extension GraphicsContext {
         public static func color(_ color: Color) -> GraphicsContext.Shading {
             #if SKIP
             // Convert SkipUI Color to Compose Color
-            let composeColor = color.asComposeColor()
+            let composeColor = color.colorImpl()
             return Shading { Brush.linearGradient(listOf(composeColor, composeColor)) }
             #else
             return Shading()
@@ -584,7 +584,7 @@ extension GraphicsContext {
         public static func linearGradient(_ gradient: Gradient, startPoint: CGPoint, endPoint: CGPoint, options: GraphicsContext.GradientOptions = GradientOptions()) -> GraphicsContext.Shading {
             #if SKIP
             return Shading {
-                let colors: List<androidx.compose.ui.graphics.Color> = gradient.stops.map { stop in stop.color.asComposeColor() }
+                let colors = gradient.stops.map { stop in stop.color.colorImpl() }
                 Brush.linearGradient(
                     colors = colors,
                     start = Offset(startPoint.x.toFloat(), startPoint.y.toFloat()),
@@ -600,7 +600,7 @@ extension GraphicsContext {
         public static func radialGradient(_ gradient: Gradient, center: CGPoint, startRadius: CGFloat, endRadius: CGFloat, options: GraphicsContext.GradientOptions = GradientOptions()) -> GraphicsContext.Shading {
             #if SKIP
             return Shading {
-                let colors: List<androidx.compose.ui.graphics.Color> = gradient.stops.map { stop in stop.color.asComposeColor() }
+                let colors = gradient.stops.map { stop in stop.color.colorImpl() }
                 Brush.radialGradient(
                     colors = colors,
                     center = Offset(center.x.toFloat(), center.y.toFloat()),
@@ -616,7 +616,7 @@ extension GraphicsContext {
         public static func conicGradient(_ gradient: Gradient, center: CGPoint, angle: Angle = Angle(), options: GraphicsContext.GradientOptions = GradientOptions()) -> GraphicsContext.Shading {
             #if SKIP
             return Shading {
-                let colors: List<androidx.compose.ui.graphics.Color> = gradient.stops.map { stop in stop.color.asComposeColor() }
+                let colors = gradient.stops.map { stop in stop.color.colorImpl() }
                 Brush.sweepGradient(
                     colors = colors,
                     center = Offset(center.x.toFloat(), center.y.toFloat())

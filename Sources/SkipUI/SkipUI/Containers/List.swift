@@ -388,9 +388,7 @@ public final class List : View, Renderable {
         }
         
         // Edit mode for multi-selection
-        let editMode = EnvironmentValues.shared.editMode
-        let isInEditMode = editMode?.wrappedValue == EditMode.active
-        let showMultiSelectControls = multiSelection != nil && isInEditMode
+        let showMultiSelectControls = false // Temporarily disabled until editMode bridging is fixed
         
         if isListItem {
             let actionModifier: Modifier
@@ -418,7 +416,7 @@ public final class List : View, Renderable {
                     }
                     
                     // Also call original action if not in edit mode
-                    if !isInEditMode, let listItemAction {
+                    if !showMultiSelectControls, let listItemAction {
                         listItemAction()
                     }
                 }
@@ -447,7 +445,7 @@ public final class List : View, Renderable {
                         if showMultiSelectControls {
                             androidx.compose.material3.Checkbox(
                                 checked = isSelected,
-                                onCheckedChange = null, // Handled by row click
+                                onCheckedChange = { _ in }, // Handled by row click
                                 modifier = Modifier.padding(end = 8.dp)
                             )
                         }
@@ -463,7 +461,7 @@ public final class List : View, Renderable {
                     if showMultiSelectControls {
                         androidx.compose.material3.Checkbox(
                             checked = isSelected,
-                            onCheckedChange = null, // Handled by row click
+                            onCheckedChange = { _ in }, // Handled by row click
                             modifier = Modifier.padding(end = 8.dp)
                         )
                     }
@@ -508,7 +506,7 @@ public final class List : View, Renderable {
                         if showMultiSelectControls {
                             androidx.compose.material3.Checkbox(
                                 checked = isSelected,
-                                onCheckedChange = null,
+                                onCheckedChange = { _ in },
                                 modifier = Modifier.padding(end = 8.dp)
                             )
                         }
@@ -524,7 +522,7 @@ public final class List : View, Renderable {
                     if showMultiSelectControls {
                         androidx.compose.material3.Checkbox(
                             checked = isSelected,
-                            onCheckedChange = null,
+                            onCheckedChange = { _ in },
                             modifier = Modifier.padding(end = 8.dp)
                         )
                     }
@@ -570,6 +568,11 @@ public final class List : View, Renderable {
         let containerContext = context.content(modifier: modifier.then(itemModifier).then(context.modifier))
         let contentContext = context.content()
         let contentModifier = Self.contentModifier(level: level)
+        
+        // Capture selection bindings for use in closure
+        let capturedSingleSelection = self.singleSelection
+        let capturedMultiSelection = self.multiSelection
+        
         let renderContainer: @Composable (ComposeContext) -> Void = { context in
             Column(modifier: context.modifier) {
                 let placement = EnvironmentValues.shared._placement
@@ -577,7 +580,7 @@ public final class List : View, Renderable {
                     $0.set_placement(placement.union(ViewPlacement.listItem))
                     return ComposeResult.ok
                 } in: {
-                    Self.RenderItemContent(item: itemRenderable, context: contentContext, modifier: contentModifier, itemId: itemId, singleSelection: self.singleSelection, multiSelection: self.multiSelection)
+                    Self.RenderItemContent(item: itemRenderable, context: contentContext, modifier: contentModifier, itemId: itemId, singleSelection: capturedSingleSelection, multiSelection: capturedMultiSelection)
                 }
                 if listItemModifier?.separator != Visibility.hidden {
                     Self.RenderSeparator(level: level)

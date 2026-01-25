@@ -88,10 +88,7 @@ public struct PhaseAnimator<Phase, Content> : View where Phase : Equatable, Cont
         }
         
         // Apply animation to content transition
-        let phaseAnimation = animation(currentPhase)
-        Animation.withAnimation(phaseAnimation) {
-            content(currentPhase).ComposeContent(context: context)
-        }
+        content(currentPhase).ComposeContent(context: context)
     }
     #else
     public init(

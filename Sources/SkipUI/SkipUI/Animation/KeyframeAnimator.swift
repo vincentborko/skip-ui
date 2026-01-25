@@ -33,7 +33,7 @@ public protocol KeyframeTrackContent {
 }
 
 public struct KeyframeAnimator<Value, KeyframePath, Content> : View 
-    where Value : Animatable, KeyframePath : Keyframes, Content : View {
+    where KeyframePath : Keyframes, Content : View {
     
     #if SKIP
     private let initialValue: Value
@@ -110,7 +110,7 @@ public struct KeyframeAnimator<Value, KeyframePath, Content> : View
 }
 
 @resultBuilder
-public struct KeyframesBuilder<Value> where Value : Animatable {
+public struct KeyframesBuilder<Value> {
     public static func buildBlock<K>(_ keyframes: K) -> K where K : Keyframes {
         return keyframes
     }
@@ -133,19 +133,18 @@ struct CombinedKeyframes : Keyframes {
 }
 #endif
 
-public struct KeyframeTrack<Root, Value, Content> : Keyframes where Value : Animatable {
+public struct KeyframeTrack<Root, Value, Content> : Keyframes {
     #if SKIP
     // Skip doesn't support KeyPath, so we use a string representation
     private let propertyName: String
     private let content: Content
     #endif
     
-    // For now, we'll accept a WritableKeyPath but just extract the property name
-    // In a full implementation, this would need proper property access
-    public init(_ keyPath: WritableKeyPath<Root, Value>, @KeyframeTrackContentBuilder<Value> content: () -> Content) {
+    // WritableKeyPath is not supported by Skip transpiler
+    // Using a simplified String-based approach instead
+    public init(_ property: String, @KeyframeTrackContentBuilder<Value> content: () -> Content) {
         #if SKIP
-        // Extract property name from keyPath (simplified - real implementation would be more complex)
-        self.propertyName = String(describing: keyPath)
+        self.propertyName = property
         self.content = content()
         #else
         fatalError()
@@ -154,7 +153,7 @@ public struct KeyframeTrack<Root, Value, Content> : Keyframes where Value : Anim
 }
 
 @resultBuilder
-public struct KeyframeTrackContentBuilder<Value> where Value : Animatable {
+public struct KeyframeTrackContentBuilder<Value> {
     public static func buildBlock<K>(_ keyframe: K) -> K where K : KeyframeTrackContent {
         return keyframe
     }
@@ -190,22 +189,23 @@ public protocol KeyframeTrackContent {
 }
 
 public struct KeyframeAnimator<Value, KeyframePath, Content> : View 
-    where Value : Animatable, KeyframePath : Keyframes, Content : View {
+    where KeyframePath : Keyframes, Content : View {
     public init(initialValue: Value, content: @escaping (KeyframeAnimatorContext<Value>) -> Content, keyframes: @escaping (Value) -> some View) { }
     public var body: some View { EmptyView() }
 }
 
-public struct KeyframeAnimatorContext<Value> where Value : Animatable {
+public struct KeyframeAnimatorContext<Value> {
     public var value: Value { fatalError() }
     public var velocity: Value { fatalError() }
 }
 
-public struct KeyframeTrack<Value, Root> : Keyframes where Value : Animatable {
-    public init(_ keyPath: WritableKeyPath<Root, Value>, content: () -> some View) { }
+public struct KeyframeTrack<Value, Root> : Keyframes {
+    // WritableKeyPath not supported by Skip - using simplified approach
+    public init(_ property: String, content: () -> some View) { }
 }
 
 @resultBuilder
-public struct KeyframesBuilder<Value> where Value : Animatable {
+public struct KeyframesBuilder<Value> {
     public static func buildBlock<Content>(_ content: Content) -> some View where Content : View {
         return EmptyView()
     }

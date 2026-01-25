@@ -82,6 +82,7 @@ extension Transition {
 
 // SKIP @bridge
 public struct ContentTransition : RawRepresentable, Equatable {
+    public typealias RawValue = Int
     public let rawValue: Int
 
     public init(rawValue: Int) {

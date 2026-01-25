@@ -9,7 +9,8 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.spring
 #endif
 
-public struct LinearKeyframe<Value> : KeyframeTrackContent where Value : Animatable {
+// Simplified without Animatable constraint for now
+public struct LinearKeyframe<Value> : KeyframeTrackContent {
     #if SKIP
     public let value: Value
     public let duration: TimeInterval
@@ -25,7 +26,7 @@ public struct LinearKeyframe<Value> : KeyframeTrackContent where Value : Animata
     }
 }
 
-public struct CubicKeyframe<Value> : KeyframeTrackContent where Value : Animatable {
+public struct CubicKeyframe<Value> : KeyframeTrackContent {
     #if SKIP
     public let value: Value
     public let duration: TimeInterval
@@ -63,7 +64,7 @@ public struct CubicKeyframe<Value> : KeyframeTrackContent where Value : Animatab
     }
 }
 
-public struct SpringKeyframe<Value> : KeyframeTrackContent where Value : Animatable {
+public struct SpringKeyframe<Value> : KeyframeTrackContent {
     #if SKIP
     public let value: Value
     public let spring: Spring
@@ -91,7 +92,7 @@ public struct SpringKeyframe<Value> : KeyframeTrackContent where Value : Animata
     }
 }
 
-public struct MoveKeyframe<Value> : KeyframeTrackContent where Value : Animatable {
+public struct MoveKeyframe<Value> : KeyframeTrackContent {
     #if SKIP
     public let value: Value
     #endif
@@ -111,17 +112,17 @@ public struct LinearKeyframe<Value> : KeyframeTrackContent where Value : Animata
     public init(_ value: Value, duration: Double = 0.0) { }
 }
 
-public struct CubicKeyframe<Value> : KeyframeTrackContent where Value : Animatable {
+public struct CubicKeyframe<Value> : KeyframeTrackContent {
     public init(_ value: Value, duration: Double = 0.0) { }
     public init(_ value: Value, duration: Double = 0.0, x1: Double, y1: Double, x2: Double, y2: Double) { }
 }
 
-public struct SpringKeyframe<Value> : KeyframeTrackContent where Value : Animatable {
+public struct SpringKeyframe<Value> : KeyframeTrackContent {
     public init(_ value: Value, spring: Spring = Spring()) { }
     public init(_ value: Value, duration: Double, spring: Spring = Spring()) { }
 }
 
-public struct MoveKeyframe<Value> : KeyframeTrackContent where Value : Animatable {
+public struct MoveKeyframe<Value> : KeyframeTrackContent {
     public init(_ value: Value) { }
 }
 #endif
