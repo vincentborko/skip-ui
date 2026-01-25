@@ -1,206 +1,102 @@
 // Copyright 2023–2025 Skip
 // SPDX-License-Identifier: LGPL-3.0-only WITH LGPL-3.0-linking-exception
-/*
+#if !SKIP_BRIDGE
+import Foundation
+#if SKIP
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.size
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.DrawStyle
+import androidx.compose.ui.graphics.drawscope.Fill
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.Paint
+import androidx.compose.ui.graphics.PaintingStyle
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.graphics.drawscope.scale
+import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.drawscope.clipPath
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.TextMeasurer
+import androidx.compose.ui.text.drawText
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.toSize
+#elseif canImport(CoreGraphics)
+import struct CoreGraphics.CGFloat
 import struct CoreGraphics.CGSize
+#endif
 
 /// A view type that supports immediate mode drawing.
 ///
 /// Use a canvas to draw rich and dynamic 2D graphics inside a SkipUI view.
 /// The canvas passes a ``GraphicsContext`` to the closure that you use
-/// to perform immediate mode drawing operations. The canvas also passes a
-///  value
-/// that you can use to customize what you draw. For example, you can use the
-/// context's ``GraphicsContext/stroke(_:with:lineWidth:)`` command to draw
-/// a ``Path`` instance:
-///
-///     Canvas { context, size in
-///         context.stroke(
-///             Path(ellipseIn: CGRect(origin: .zero, size: size)),
-///             with: .color(.green),
-///             lineWidth: 4)
-///     }
-///     .frame(width: 300, height: 200)
-///     .border(Color.blue)
-///
-/// The example above draws the outline of an ellipse that exactly inscribes
-/// a canvas with a blue border:
-///
-/// ![A screenshot of a canvas view that shows the green outline of an
-/// ellipse inside a blue rectangle.](Canvas-1)
-///
-/// In addition to outlined and filled paths, you can draw images, text, and
-/// complete SkipUI views. To draw views, use the
-/// ``init(opaque:colorMode:rendersAsynchronously:renderer:symbols:)`` method
-/// to supply views that you can reference from inside the renderer. You can
-/// also add masks, apply filters, perform transforms, control blending, and
-/// more. For information about how to draw, see ``GraphicsContext``.
-///
-/// A canvas doesn't offer interactivity or accessibility for
-/// individual elements, including for views that you pass in as symbols.
-/// However, it might provide better performance for a complex drawing that
-/// involves dynamic data. Use a canvas to improve performance for a drawing
-/// that doesn't primarily involve text or require interactive elements.
-@available(iOS 15.0, macOS 12.0, tvOS 15.0, watchOS 8.0, *)
+/// to perform immediate mode drawing operations.
 public struct Canvas<Symbols> where Symbols : View {
+    public let symbols: Symbols
+    public let renderer: (inout GraphicsContext, CGSize) -> Void
+    public let isOpaque: Bool
+    public let colorMode: ColorRenderingMode
+    public let rendersAsynchronously: Bool
 
-    /// A view that provides child views that you can use in the drawing
-    /// callback.
-    ///
-    /// Uniquely tag each child view using the ``View/tag(_:)`` modifier,
-    /// so that you can find them from within your renderer using the
-    /// ``GraphicsContext/resolveSymbol(id:)`` method.
-    public var symbols: Symbols { get { fatalError() } }
-
-    /// The drawing callback that you use to draw into the canvas.
-    ///
-    /// - Parameters:
-    ///   - context: The graphics context to draw into.
-    ///   - size: The current size of the view.
-    public var renderer: (inout GraphicsContext, CGSize) -> Void { get { fatalError() } }
-
-    /// A Boolean that indicates whether the canvas is fully opaque.
-    ///
-    /// You might be able to improve performance by setting this value to
-    /// `true`, making the canvas is fully opaque. However, in that case,
-    /// the result of drawing a non-opaque image into the canvas is undefined.
-    public var isOpaque: Bool { get { fatalError() } }
-
-    /// The working color space and storage format of the canvas.
-    public var colorMode: ColorRenderingMode { get { fatalError() } }
-
-    /// A Boolean that indicates whether the canvas can present its contents
-    /// to its parent view asynchronously.
-    public var rendersAsynchronously: Bool { get { fatalError() } }
-
-    /// Creates and configures a canvas that you supply with renderable
-    /// child views.
-    ///
-    /// This initializer behaves like the
-    /// ``init(opaque:colorMode:rendersAsynchronously:renderer:)`` initializer,
-    /// except that you also provide a collection of SkipUI views for the
-    /// renderer to use as drawing elements.
-    ///
-    /// SkipUI stores a rendered version of each child view that you specify
-    /// in the `symbols` view builder and makes these available to the canvas.
-    /// Tag each child view so that you can retrieve it from within the
-    /// renderer using the ``GraphicsContext/resolveSymbol(id:)`` method.
-    /// For example, you can create a scatter plot using a passed-in child view
-    /// as the mark for each data point:
-    ///
-    ///     struct ScatterPlotView<Mark: View>: View {
-    ///         let rects: [CGRect]
-    ///         let mark: Mark
-    ///
-    ///         enum SymbolID: Int {
-    ///             case mark
-    ///         }
-    ///
-    ///         var body: some View {
-    ///             Canvas { context, size in
-    ///                 if let mark = context.resolveSymbol(id: SymbolID.mark) {
-    ///                     for rect in rects {
-    ///                         context.draw(mark, in: rect)
-    ///                     }
-    ///                 }
-    ///             } symbols: {
-    ///                 mark.tag(SymbolID.mark)
-    ///             }
-    ///             .frame(width: 300, height: 200)
-    ///             .border(Color.blue)
-    ///         }
-    ///     }
-    ///
-    /// You can use any SkipUI view for the `mark` input:
-    ///
-    ///     ScatterPlotView(rects: rects, mark: Image(systemName: "circle"))
-    ///
-    /// If the `rects` input contains 50 randomly arranged
-    /// instances, SkipUI draws a plot like this:
-    ///
-    /// ![A screenshot of a scatter plot inside a blue rectangle, containing
-    /// about fifty small circles scattered randomly throughout.](Canvas-init-1)
-    ///
-    /// The symbol inputs, like all other elements that you draw to the
-    /// canvas, lack individual accessibility and interactivity, even if the
-    /// original SkipUI view has these attributes. However, you can add
-    /// accessibility and interactivity modifers to the canvas as a whole.
-    ///
-    /// - Parameters:
-    ///   - opaque: A Boolean that indicates whether the canvas is fully
-    ///     opaque. You might be able to improve performance by setting this
-    ///     value to `true`, but then drawing a non-opaque image into the
-    ///     context produces undefined results. The default is `false`.
-    ///   - colorMode: A working color space and storage format of the canvas.
-    ///     The default is ``ColorRenderingMode/nonLinear``.
-    ///   - rendersAsynchronously: A Boolean that indicates whether the canvas
-    ///     can present its contents to its parent view asynchronously. The
-    ///     default is `false`.
-    ///   - renderer: A closure in which you conduct immediate mode drawing.
-    ///     The closure takes two inputs: a context that you use to issue
-    ///     drawing commands and a size --- representing the current
-    ///     size of the canvas --- that you can use to customize the content.
-    ///     The canvas calls the renderer any time it needs to redraw the
-    ///     content.
-    ///   - symbols: A ``ViewBuilder`` that you use to supply SkipUI views to
-    ///     the canvas for use during drawing. Uniquely tag each view
-    ///     using the ``View/tag(_:)`` modifier, so that you can find them from
-    ///     within your renderer using the ``GraphicsContext/resolveSymbol(id:)``
-    ///     method.
-    public init(opaque: Bool = false, colorMode: ColorRenderingMode = .nonLinear, rendersAsynchronously: Bool = false, renderer: @escaping (inout GraphicsContext, CGSize) -> Void, @ViewBuilder symbols: () -> Symbols) { fatalError() }
+    /// Creates and configures a canvas that you supply with renderable child views.
+    public init(opaque: Bool = false, colorMode: ColorRenderingMode = .nonLinear, rendersAsynchronously: Bool = false, renderer: @escaping (inout GraphicsContext, CGSize) -> Void, @ViewBuilder symbols: () -> Symbols) {
+        self.isOpaque = opaque
+        self.colorMode = colorMode
+        self.rendersAsynchronously = rendersAsynchronously
+        self.renderer = renderer
+        self.symbols = symbols()
+    }
 
     public typealias Body = NeverView
 }
 
-@available(iOS 15.0, macOS 12.0, tvOS 15.0, watchOS 8.0, *)
 extension Canvas where Symbols == EmptyView {
-
     /// Creates and configures a canvas.
-    ///
-    /// Use this initializer to create a new canvas that you can draw into.
-    /// For example, you can draw a path:
-    ///
-    ///     Canvas { context, size in
-    ///         context.stroke(
-    ///             Path(ellipseIn: CGRect(origin: .zero, size: size)),
-    ///             with: .color(.green),
-    ///             lineWidth: 4)
-    ///     }
-    ///     .frame(width: 300, height: 200)
-    ///     .border(Color.blue)
-    ///
-    /// The example above draws the outline of an ellipse that exactly inscribes
-    /// a canvas with a blue border:
-    ///
-    /// ![A screenshot of a canvas view that shows the green outline of an
-    /// ellipse inside a blue rectangle.](Canvas-1)
-    ///
-    /// For information about using a context to draw into a canvas, see
-    /// ``GraphicsContext``. If you want to provide SkipUI views for the
-    /// renderer to use as drawing elements, use
-    /// ``init(opaque:colorMode:rendersAsynchronously:renderer:symbols:)``
-    /// instead.
-    ///
-    /// - Parameters:
-    ///   - opaque: A Boolean that indicates whether the canvas is fully
-    ///     opaque. You might be able to improve performance by setting this
-    ///     value to `true`, but then drawing a non-opaque image into the
-    ///     context produces undefined results. The default is `false`.
-    ///   - colorMode: A working color space and storage format of the canvas.
-    ///     The default is ``ColorRenderingMode/nonLinear``.
-    ///   - rendersAsynchronously: A Boolean that indicates whether the canvas
-    ///     can present its contents to its parent view asynchronously. The
-    ///     default is `false`.
-    ///   - renderer: A closure in which you conduct immediate mode drawing.
-    ///     The closure takes two inputs: a context that you use to issue
-    ///     drawing commands and a size --- representing the current
-    ///     size of the canvas --- that you can use to customize the content.
-    ///     The canvas calls the renderer any time it needs to redraw the
-    ///     content.
-    public init(opaque: Bool = false, colorMode: ColorRenderingMode = .nonLinear, rendersAsynchronously: Bool = false, renderer: @escaping (inout GraphicsContext, CGSize) -> Void) { fatalError() }
+    public init(opaque: Bool = false, colorMode: ColorRenderingMode = .nonLinear, rendersAsynchronously: Bool = false, renderer: @escaping (inout GraphicsContext, CGSize) -> Void) {
+        self.isOpaque = opaque
+        self.colorMode = colorMode
+        self.rendersAsynchronously = rendersAsynchronously
+        self.renderer = renderer
+        self.symbols = EmptyView()
+    }
 }
 
-@available(iOS 15.0, macOS 12.0, tvOS 15.0, watchOS 8.0, *)
+#if SKIP
+extension Canvas : Renderable {
+    @Composable public func Render(context: ComposeContext) {
+        let density = LocalDensity.current
+        let textMeasurer = rememberTextMeasurer()
+        
+        Canvas(modifier: context.modifier) { drawScope ->
+            let size = CGSize(width: CGFloat(drawScope.size.width / density.density), height: CGFloat(drawScope.size.height / density.density))
+            var graphicsContext = GraphicsContext(drawScope: drawScope, density: density, textMeasurer: textMeasurer, size: size)
+            renderer(&graphicsContext, size)
+        }
+    }
+}
+#endif
+
 extension Canvas : View {
     public var body: Body { fatalError() }
 }
-*/
+
+/// A working color space and storage format of a canvas.
+public enum ColorRenderingMode : Hashable {
+    case nonLinear
+    case linear
+    case extendedLinear
+}
+
+#endif

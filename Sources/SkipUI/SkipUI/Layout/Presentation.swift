@@ -125,6 +125,20 @@ let overlayPresentationCornerRadius = 16.0
             let cornerRadiusPreferencesCollector = PreferenceCollector<CGFloat?>(key: PresentationCornerRadiusPreferenceKey.self, state: cornerRadiusPreferences)
             let reducedCornerRadiusPreferences = cornerRadiusPreferences.value.reduced
 
+            let backgroundInteractionPreferences = rememberSaveable(stateSaver: context.stateSaver as! Saver<Preference<PresentationBackgroundInteraction>, Any>) { mutableStateOf(Preference<PresentationBackgroundInteraction>(key: PresentationBackgroundInteractionPreferenceKey.self)) }
+            let backgroundInteractionPreferencesCollector = PreferenceCollector<PresentationBackgroundInteraction>(key: PresentationBackgroundInteractionPreferenceKey.self, state: backgroundInteractionPreferences)
+            let reducedBackgroundInteractionPreferences = backgroundInteractionPreferences.value.reduced
+
+            let compactAdaptationPreferences = rememberSaveable(stateSaver: context.stateSaver as! Saver<Preference<PresentationAdaptation>, Any>) { mutableStateOf(Preference<PresentationAdaptation>(key: PresentationCompactAdaptationPreferenceKey.self)) }
+            let compactAdaptationPreferencesCollector = PreferenceCollector<PresentationAdaptation>(key: PresentationCompactAdaptationPreferenceKey.self, state: compactAdaptationPreferences)
+            let reducedCompactAdaptationPreferences = compactAdaptationPreferences.value.reduced
+
+            // TODO: Implement background interaction behavior
+            // reducedBackgroundInteractionPreferences controls whether background can be interacted with
+            
+            // TODO: Implement compact adaptation behavior  
+            // reducedCompactAdaptationPreferences controls how presentation adapts in compact size class
+            
             if !isFullScreen && verticalSizeClass != .compact {
                 systemBarEdges.remove(.top)
                 if !isEdgeToEdge {
@@ -187,7 +201,7 @@ let overlayPresentationCornerRadius = 16.0
                         $0.setdismiss(DismissAction(action: { isPresented.set(false) }))
                         return ComposeResult.ok
                     } in: {
-                        PreferenceValues.shared.collectPreferences([interactiveDismissDisabledCollector, detentPreferencesCollector, dragIndicatorPreferencesCollector, cornerRadiusPreferencesCollector]) {
+                        PreferenceValues.shared.collectPreferences([interactiveDismissDisabledCollector, detentPreferencesCollector, dragIndicatorPreferencesCollector, cornerRadiusPreferencesCollector, backgroundInteractionPreferencesCollector, compactAdaptationPreferencesCollector]) {
                             for renderable in contentRenderables {
                                 renderable.Render(context: context)
                             }
@@ -679,6 +693,22 @@ struct PresentationCornerRadiusPreferenceKey: PreferenceKey {
         }
     }
 }
+
+struct PresentationBackgroundInteractionPreferenceKey: PreferenceKey {
+    static let defaultValue = PresentationBackgroundInteraction.automatic
+
+    static func reduce(value: inout PresentationBackgroundInteraction, nextValue: () -> PresentationBackgroundInteraction) {
+        value = nextValue()
+    }
+}
+
+struct PresentationCompactAdaptationPreferenceKey: PreferenceKey {
+    static let defaultValue = PresentationAdaptation.automatic
+
+    static func reduce(value: inout PresentationAdaptation, nextValue: () -> PresentationAdaptation) {
+        value = nextValue()
+    }
+}
 #endif
 
 extension View {
@@ -1056,19 +1086,31 @@ extension View {
         #endif
     }
 
-    @available(*, unavailable)
+    // SKIP @bridge
     public func presentationBackgroundInteraction(_ interaction: PresentationBackgroundInteraction) -> some View {
+        #if SKIP
+        return preference(key: PresentationBackgroundInteractionPreferenceKey.self, value: interaction)
+        #else
         return self
+        #endif
     }
 
-    @available(*, unavailable)
+    // SKIP @bridge
     public func presentationCompactAdaptation(_ adaptation: PresentationAdaptation) -> some View {
+        #if SKIP
+        return preference(key: PresentationCompactAdaptationPreferenceKey.self, value: adaptation)
+        #else
         return self
+        #endif
     }
 
-    @available(*, unavailable)
+    // SKIP @bridge
     public func presentationCompactAdaptation(horizontal horizontalAdaptation: PresentationAdaptation, vertical verticalAdaptation: PresentationAdaptation) -> some View {
+        #if SKIP
+        return preference(key: PresentationCompactAdaptationPreferenceKey.self, value: horizontalAdaptation)
+        #else
         return self
+        #endif
     }
 
     public func presentationCornerRadius(_ cornerRadius: CGFloat?) -> some View {
