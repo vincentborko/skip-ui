@@ -59,7 +59,18 @@ public struct LazyHStack : View, Renderable {
         ComposeContainer(axis: .horizontal, scrollAxes: scrollAxes, modifier: context.modifier, fillWidth: true) { modifier in
             // Integrate with ScrollViewReader
             let listState = rememberLazyListState()
-            let flingBehavior = scrollTargetBehavior is ViewAlignedScrollTargetBehavior ? rememberSnapFlingBehavior(listState, SnapPosition.Start) : ScrollableDefaults.flingBehavior()
+            let flingBehavior: FlingBehavior
+            if scrollTargetBehavior is PagingScrollTargetBehavior {
+                // For paging, use snap fling behavior which creates page-like scrolling
+                // This snaps to the nearest item, creating a paging effect
+                flingBehavior = rememberSnapFlingBehavior(listState)
+            } else if scrollTargetBehavior is ViewAlignedScrollTargetBehavior {
+                // For view aligned, snap to item edges
+                flingBehavior = rememberSnapFlingBehavior(listState)
+            } else {
+                // Default scrolling
+                flingBehavior = ScrollableDefaults.flingBehavior()
+            }
             let coroutineScope = rememberCoroutineScope()
             
             // Handle scroll position binding

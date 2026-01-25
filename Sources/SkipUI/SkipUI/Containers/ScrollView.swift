@@ -443,15 +443,13 @@ public protocol ScrollTargetBehavior {
 }
 
 public struct PagingScrollTargetBehavior: ScrollTargetBehavior {
-    @available(*, unavailable)
     public init() {
     }
 }
 
 extension ScrollTargetBehavior where Self == PagingScrollTargetBehavior {
-    @available(*, unavailable)
     public static var paging: PagingScrollTargetBehavior {
-        fatalError()
+        return PagingScrollTargetBehavior()
     }
 }
 
