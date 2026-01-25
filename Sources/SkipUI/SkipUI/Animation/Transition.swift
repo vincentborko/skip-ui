@@ -480,28 +480,19 @@ final class ContentTransitionModifier: RenderModifier {
 
     init(transition: ContentTransition) {
         self.transition = transition
-        super.init()
-    }
-
-    @Composable override func Render(context: RenderContext) -> Bool {
-        let content = context.content
-        
-        switch transition.rawValue {
-        case 0: // .identity
-            content.Render(context: context)
-            return true
-        case 1: // .opacity
-            OpacityContentTransition(content: content, context: context)
-            return true
-        case 2: // .interpolate
-            InterpolateContentTransition(content: content, context: context)
-            return true
-        case 3: // .numericText
-            NumericTextContentTransition(content: content, context: context)
-            return true
-        default:
-            content.Render(context: context)
-            return true
+        super.init { content, context in
+            switch transition.rawValue {
+            case 0: // .identity
+                content.Render(context: context)
+            case 1: // .opacity
+                OpacityContentTransition(content: content, context: context)
+            case 2: // .interpolate
+                InterpolateContentTransition(content: content, context: context)
+            case 3: // .numericText
+                NumericTextContentTransition(content: content, context: context)
+            default:
+                content.Render(context: context)
+            }
         }
     }
 }
@@ -543,39 +534,38 @@ extension IntSize {
 }
 
 @Composable 
-func OpacityContentTransition(content: any View, context: RenderContext) {
-    AnimatedContent(
-        targetState: content.id,
-        transitionSpec: {
-            fadeIn(tween(300)).togetherWith(fadeOut(tween(300)))
-        }
-    ) { _ in
+func OpacityContentTransition(content: Renderable, context: ComposeContext) {
+    // Simple fade animation wrapper
+    androidx.compose.animation.AnimatedVisibility(
+        visible: true,
+        enter: fadeIn(tween(300)),
+        exit: fadeOut(tween(300))
+    ) {
         content.Render(context: context)
     }
 }
 
 @Composable 
-func InterpolateContentTransition(content: any View, context: RenderContext) {
-    AnimatedContent(
-        targetState: content.id,
-        transitionSpec: {
-            fadeIn(tween(300)).togetherWith(fadeOut(tween(300)))
-        }
-    ) { _ in
+func InterpolateContentTransition(content: Renderable, context: ComposeContext) {
+    // Simple crossfade animation
+    androidx.compose.animation.AnimatedVisibility(
+        visible: true,
+        enter: fadeIn(tween(300)),
+        exit: fadeOut(tween(300))
+    ) {
         content.Render(context: context)
     }
 }
 
 @Composable 
-func NumericTextContentTransition(content: any View, context: RenderContext) {
+func NumericTextContentTransition(content: Renderable, context: ComposeContext) {
     // For now, implement as simple fade transition for numeric content
     // TODO: Implement proper digit-by-digit animation when syntax is supported
-    AnimatedContent(
-        targetState: content.id,
-        transitionSpec: {
-            fadeIn(tween(300)).togetherWith(fadeOut(tween(300)))
-        }
-    ) { _ in
+    androidx.compose.animation.AnimatedVisibility(
+        visible: true,
+        enter: fadeIn(tween(300)),
+        exit: fadeOut(tween(300))
+    ) {
         content.Render(context: context)
     }
 }

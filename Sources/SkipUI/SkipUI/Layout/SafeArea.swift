@@ -87,6 +87,9 @@ extension View {
         #endif
     }
 
+    // Disabled due to method signature conflicts with Toolbar items
+    // These bridge versions cause conflicts in Kotlin transpilation
+    /*
     // SKIP @bridge
     public func safeAreaInset(bridgedVerticalEdge: Int, horizontalAlignmentKey: String, spacing: CGFloat?, bridgedContent: any View) -> any View {
         #if SKIP
@@ -112,16 +115,10 @@ extension View {
         return self
         #endif
     }
+    */
 
-    @available(*, unavailable)
-    public func safeAreaPadding(_ insets: EdgeInsets) -> some View {
-        return self
-    }
-
-    @available(*, unavailable)
-    public func safeAreaPadding(_ edges: Edge.Set = .all, _ length: CGFloat? = nil) -> some View {
-        return self
-    }
+    // Removed safeAreaPadding functions as EdgeInsets is not bridged
+    // and these are unavailable anyway
 
     @available(*, unavailable)
     public func safeAreaPadding(_ length: CGFloat) -> some View {

@@ -14,57 +14,70 @@ import androidx.compose.ui.Modifier
 struct SymbolEffectsRemovedModifier: RenderModifier {
     let isEnabled: Bool
     
-    @Composable public override func Render(context: ComposeContext) {
-        // When enabled, render without any effects
-        context.content()
+    init(isEnabled: Bool) {
+        self.isEnabled = isEnabled
+        super.init { content, context in
+            // When enabled, render without any effects
+            content.Render(context: context)
+        }
     }
 }
 
 /// Modifier for indefinite symbol effects
-struct IndefiniteSymbolEffectModifier<T: IndefiniteSymbolEffect & SymbolEffect>: RenderModifier {
-    let effect: T
+struct IndefiniteSymbolEffectModifier: RenderModifier {
+    let effect: any IndefiniteSymbolEffect
     let options: SymbolEffectOptions
     let isActive: Bool
     
-    @Composable public override func Render(context: ComposeContext) {
-        let modifier = remember { Modifier }
-        let effectModifier = effect.apply(modifier: modifier, isActive: isActive, options: options)
-        
-        // Apply the effect modifier to the content
-        ComposeContainer(modifier: effectModifier) {
-            context.content()
+    init(effect: any IndefiniteSymbolEffect, options: SymbolEffectOptions, isActive: Bool) {
+        self.effect = effect
+        self.options = options
+        self.isActive = isActive
+        super.init { content, context in
+            let modifier = remember { Modifier }
+            let effectModifier = effect.apply(modifier: modifier, isActive: isActive, options: options)
+            
+            // Apply the effect modifier to the content
+            var modifiedContext = context
+            modifiedContext.modifier = modifiedContext.modifier.then(effectModifier)
+            content.Render(context: modifiedContext)
         }
     }
 }
 
 /// Modifier for discrete symbol effects triggered by value changes
-struct DiscreteSymbolEffectModifier<T: DiscreteSymbolEffect & SymbolEffect, U: Equatable>: RenderModifier {
-    let effect: T
+struct DiscreteSymbolEffectModifier<U: Equatable>: RenderModifier {
+    let effect: any DiscreteSymbolEffect
     let options: SymbolEffectOptions
     let value: U
     
-    @Composable public override func Render(context: ComposeContext) {
-        var previousValue = remember { mutableStateOf(value) }
-        var triggerEffect = remember { mutableStateOf(false) }
-        
-        // Detect value changes
-        LaunchedEffect(value) {
-            if value != previousValue.value {
-                previousValue.value = value
-                triggerEffect.value = true
-                
-                // Reset after animation completes
-                kotlinx.coroutines.delay((500 / options.speed).toLong())
-                triggerEffect.value = false
+    init(effect: any DiscreteSymbolEffect, options: SymbolEffectOptions, value: U) {
+        self.effect = effect
+        self.options = options
+        self.value = value
+        super.init { content, context in
+            var previousValue = remember { mutableStateOf(value) }
+            var triggerEffect = remember { mutableStateOf(false) }
+            
+            // Detect value changes
+            LaunchedEffect(value) {
+                if value != previousValue.value {
+                    previousValue.value = value
+                    triggerEffect.value = true
+                    
+                    // Reset after animation completes
+                    kotlinx.coroutines.delay((500 / options.speed).toLong())
+                    triggerEffect.value = false
+                }
             }
-        }
-        
-        let modifier = remember { Modifier }
-        let effectModifier = effect.apply(modifier: modifier, isActive: triggerEffect.value, options: options)
-        
-        // Apply the effect modifier to the content
-        ComposeContainer(modifier: effectModifier) {
-            context.content()
+            
+            let modifier = remember { Modifier }
+            let effectModifier = effect.apply(modifier: modifier, isActive: triggerEffect.value, options: options)
+            
+            // Apply the effect modifier to the content
+            var modifiedContext = context
+            modifiedContext.modifier = modifiedContext.modifier.then(effectModifier)
+            content.Render(context: modifiedContext)
         }
     }
 }

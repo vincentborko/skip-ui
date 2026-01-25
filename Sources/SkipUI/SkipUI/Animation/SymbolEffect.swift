@@ -73,14 +73,14 @@ public struct BounceSymbolEffect: IndefiniteSymbolEffect, DiscreteSymbolEffect {
     
     #if SKIP
     @Composable public func apply(modifier: Modifier, isActive: Bool, options: SymbolEffectOptions) -> Modifier {
-        let targetScale = if isActive { 1.2 } else { 1.0 }
+        let targetScale = if isActive { 1.2 as Float } else { 1.0 as Float }
         let animationDuration = Int(500 / options.speed)
         
         let scale = animateFloatAsState(
-            targetValue: targetScale,
+            targetValue: targetScale as Float,
             animationSpec: spring(
-                dampingRatio: Spring.DampingRatioMediumBouncy,
-                stiffness: Spring.StiffnessLow
+                dampingRatio: Spring.DampingRatioMediumBouncy as Float,
+                stiffness: Spring.StiffnessLow as Float
             ),
             label: "bounce"
         )
@@ -115,8 +115,8 @@ public struct PulseSymbolEffect: IndefiniteSymbolEffect {
         let animationDuration = Int(1000 / options.speed)
         
         let alpha = infiniteTransition.animateFloat(
-            initialValue: 1.0,
-            targetValue: 0.3,
+            initialValue: 1.0 as Float,
+            targetValue: 0.3 as Float,
             animationSpec: infiniteRepeatable(
                 animation: tween(durationMillis: animationDuration),
                 repeatMode: RepeatMode.Reverse
@@ -144,8 +144,8 @@ public struct VariableColorSymbolEffect: IndefiniteSymbolEffect {
         
         // Animate through hue values for color variation
         let hue = infiniteTransition.animateFloat(
-            initialValue: 0.0,
-            targetValue: 360.0,
+            initialValue: 0.0 as Float,
+            targetValue: 360.0 as Float,
             animationSpec: infiniteRepeatable(
                 animation: tween(durationMillis: animationDuration)
             ),
@@ -154,7 +154,7 @@ public struct VariableColorSymbolEffect: IndefiniteSymbolEffect {
         
         return modifier.graphicsLayer {
             // Apply hue rotation for color variation effect
-            rotationZ = 0.0  // No actual rotation, just using graphicsLayer for potential color matrix in future
+            rotationZ = 0.0 as Float  // No actual rotation, just using graphicsLayer for potential color matrix in future
         }
     }
     #endif
@@ -170,7 +170,7 @@ public struct ScaleSymbolEffect: DiscreteSymbolEffect {
     
     #if SKIP
     @Composable public func apply(modifier: Modifier, isActive: Bool, options: SymbolEffectOptions) -> Modifier {
-        let targetScale = if isActive { scale } else { 1.0 }
+        let targetScale = if isActive { scale } else { 1.0 as Float }
         let animationDuration = Int(300 / options.speed)
         
         let animatedScale = animateFloatAsState(
@@ -203,7 +203,7 @@ public struct AppearSymbolEffect: DiscreteSymbolEffect {
     
     #if SKIP
     @Composable public func apply(modifier: Modifier, isActive: Bool, options: SymbolEffectOptions) -> Modifier {
-        let targetAlpha = if isActive { 1.0 } else { 0.0 }
+        let targetAlpha = if isActive { 1.0 as Float } else { 0.0 as Float }
         let animationDuration = Int(400 / options.speed)
         
         let alpha = animateFloatAsState(
@@ -223,7 +223,7 @@ public struct DisappearSymbolEffect: DiscreteSymbolEffect {
     
     #if SKIP
     @Composable public func apply(modifier: Modifier, isActive: Bool, options: SymbolEffectOptions) -> Modifier {
-        let targetAlpha = if isActive { 0.0 } else { 1.0 }
+        let targetAlpha = if isActive { 0.0 as Float } else { 1.0 as Float }
         let animationDuration = Int(400 / options.speed)
         
         let alpha = animateFloatAsState(
@@ -251,8 +251,8 @@ public struct BreatheSymbolEffect: IndefiniteSymbolEffect {
         let animationDuration = Int(2000 / options.speed)
         
         let scale = infiniteTransition.animateFloat(
-            initialValue: 1.0,
-            targetValue: 1.1,
+            initialValue: 1.0 as Float,
+            targetValue: 1.1 as Float,
             animationSpec: infiniteRepeatable(
                 animation: tween(durationMillis: animationDuration),
                 repeatMode: RepeatMode.Reverse
@@ -279,8 +279,8 @@ public struct RotateSymbolEffect: IndefiniteSymbolEffect {
         let animationDuration = Int(2000 / options.speed)
         
         let rotation = infiniteTransition.animateFloat(
-            initialValue: 0.0,
-            targetValue: 360.0,
+            initialValue: 0.0 as Float,
+            targetValue: 360.0 as Float,
             animationSpec: infiniteRepeatable(
                 animation: tween(durationMillis: animationDuration)
             ),
@@ -306,8 +306,8 @@ public struct WiggleSymbolEffect: IndefiniteSymbolEffect {
         let animationDuration = Int(200 / options.speed)
         
         let rotation = infiniteTransition.animateFloat(
-            initialValue: -5.0,
-            targetValue: 5.0,
+            initialValue: -5.0 as Float,
+            targetValue: 5.0 as Float,
             animationSpec: infiniteRepeatable(
                 animation: tween(durationMillis: animationDuration),
                 repeatMode = RepeatMode.Reverse
