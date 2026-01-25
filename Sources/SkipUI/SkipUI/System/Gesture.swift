@@ -87,9 +87,8 @@ extension Gesture {
         return self
     }
 
-    @available(*, unavailable)
-    public func simultaneously(with other: any Gesture) -> any Gesture<V> {
-        return self
+    public func simultaneously<Other>(with other: Other) -> SimultaneousGesture<Self, Other> where Other : Gesture {
+        return SimultaneousGesture(first: self, second: other)
     }
 
     #if SKIP
@@ -348,6 +347,10 @@ public struct RotateGesture : Gesture, BridgedGesture {
         self.minimumAngleDelta = .degrees(minimumAngleDegreesDelta)
     }
 }
+
+// Legacy type aliases (pre-iOS 17)
+public typealias MagnificationGesture = MagnifyGesture
+public typealias RotationGesture = RotateGesture
 
 // SKIP @bridge
 public struct RotateGestureValue {
@@ -1050,4 +1053,25 @@ extension Optional : Gesture where Wrapped : Gesture {
     public typealias V = Wrapped.V
 }
 */
+
+// SKIP @bridge
+public struct SimultaneousGestureValue<FirstValue, SecondValue> {
+    public var first: FirstValue?
+    public var second: SecondValue?
+}
+
+// SKIP @bridge
+public struct SimultaneousGesture<First: Gesture, Second: Gesture> : Gesture, BridgedGesture {
+    public typealias Value = SimultaneousGestureValue<First.V, Second.V>
+    public typealias V = Value
+    
+    public let first: First
+    public let second: Second
+    
+    // SKIP @bridge
+    public init(first: First, second: Second) {
+        self.first = first
+        self.second = second
+    }
+}
 #endif
