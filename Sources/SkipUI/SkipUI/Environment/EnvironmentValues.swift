@@ -830,6 +830,16 @@ extension EnvironmentValues {
         set { setBuiltinValue(key: "_scrollViewAxes", value: newValue, defaultValue: { Axis.Set(rawValue: 0) }) }
     }
 
+    var _scrollPositionID: Binding<(any Hashable)?>? {
+        get { builtinValue(key: "_scrollPositionID", defaultValue: { nil }) as! Binding<(any Hashable)?>? }
+        set { setBuiltinValue(key: "_scrollPositionID", value: newValue, defaultValue: { nil }) }
+    }
+
+    var _scrollTargetEnabled: Bool {
+        get { builtinValue(key: "_scrollTargetEnabled", defaultValue: { true }) as! Bool }
+        set { setBuiltinValue(key: "_scrollTargetEnabled", value: newValue, defaultValue: { true }) }
+    }
+
     var _searchableState: SearchableState? {
         get { builtinValue(key: "_searchableState", defaultValue: { nil }) as! SearchableState? }
         set { setBuiltinValue(key: "_searchableState", value: newValue, defaultValue: { nil }) }

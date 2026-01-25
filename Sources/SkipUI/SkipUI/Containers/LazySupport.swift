@@ -245,6 +245,58 @@ public final class LazyItemCollector {
         }
         return nil
     }
+    
+    /// Return the ID for the given compose key (reverse lookup from index), or nil.
+    func id(for key: String) -> (any Hashable)? {
+        // Parse the index from the compose bundle string key
+        guard let index = Int(key) else {
+            return nil
+        }
+        
+        var currentIndex = startItemIndex
+        for content in self.content {
+            switch content {
+            case .items(let start, let count, let idMap, _):
+                let endIndex = currentIndex + count
+                if index >= currentIndex && index < endIndex {
+                    let itemIndex = start + (index - currentIndex)
+                    if let idMap {
+                        return idMap(itemIndex) as? (any Hashable)
+                    } else {
+                        return itemIndex as (any Hashable)
+                    }
+                }
+                currentIndex = endIndex
+            case .objectItems(let objects, let idMap, _):
+                let endIndex = currentIndex + objects.count
+                if index >= currentIndex && index < endIndex {
+                    let objectIndex = index - currentIndex
+                    let objectsArray = Array(objects)
+                    if objectIndex < objectsArray.count {
+                        return idMap(objectsArray[objectIndex]) as? (any Hashable)
+                    }
+                }
+                currentIndex = endIndex
+            case .objectBindingItems(let binding, let idMap, _):
+                let count = binding.wrappedValue.count
+                let endIndex = currentIndex + count
+                if index >= currentIndex && index < endIndex {
+                    let objectIndex = index - currentIndex
+                    let objectsArray = Array(binding.wrappedValue)
+                    if objectIndex < objectsArray.count {
+                        return idMap(objectsArray[objectIndex]) as? (any Hashable)
+                    }
+                }
+                currentIndex = endIndex
+            case .sectionHeader, .sectionFooter: 
+                if index == currentIndex {
+                    return nil // Section headers/footers don't have IDs
+                }
+                currentIndex += 1
+            }
+        }
+        return nil
+    }
 
     private var moving: (fromIndex: Int, toIndex: Int)?
     private var moveTrigger = 0

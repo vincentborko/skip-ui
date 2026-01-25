@@ -391,9 +391,13 @@ extension View {
         return self
     }
 
-    @available(*, unavailable)
+    // SKIP @bridge
     public func scrollPosition(id: Binding<(any Hashable)?>) -> some View {
+        #if SKIP
+        return environment(\._scrollPositionID, id, affectsEvaluate: false)
+        #else
         return self
+        #endif
     }
 
     @available(*, unavailable)
@@ -401,9 +405,13 @@ extension View {
         return self
     }
 
-    @available(*, unavailable)
+    // SKIP @bridge
     public func scrollTarget(isEnabled: Bool = true) -> some View {
+        #if SKIP
+        return environment(\._scrollTargetEnabled, isEnabled, affectsEvaluate: false)
+        #else
         return self
+        #endif
     }
 
     // SKIP @bridge
@@ -419,6 +427,11 @@ extension View {
     public func scrollTargetLayout(isEnabled: Bool = true) -> any View {
         // We do not support specifying scroll targets, but we want the natural pattern of using this modifier
         // on the VStack/HStack content of a ScrollView to work without #if SKIP-ing it out
+        return self
+    }
+
+    @available(*, unavailable)
+    public func defaultScrollAnchor(_ anchor: UnitPoint?) -> some View {
         return self
     }
 }

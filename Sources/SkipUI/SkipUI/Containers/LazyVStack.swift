@@ -70,6 +70,35 @@ public struct LazyVStack : View, Renderable {
                 let listState = rememberLazyListState(initialFirstVisibleItemIndex = isSearchable ? 1 : 0)
                 let flingBehavior = scrollTargetBehavior is ViewAlignedScrollTargetBehavior ? rememberSnapFlingBehavior(listState, SnapPosition.Start) : ScrollableDefaults.flingBehavior()
                 let coroutineScope = rememberCoroutineScope()
+                
+                // Handle scroll position binding
+                if let scrollPositionBinding = EnvironmentValues.shared._scrollPositionID {
+                    // Track visible item changes
+                    androidx.compose.runtime.LaunchedEffect(listState) {
+                        androidx.compose.runtime.snapshotFlow {
+                            listState.layoutInfo.visibleItemsInfo.firstOrNull()?.key
+                        }.collect { key in
+                            if let key = key as? String {
+                                // Extract ID from the compose bundle string
+                                if let id = itemCollector.value.id(for: key) {
+                                    scrollPositionBinding.wrappedValue = id
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Scroll to item when binding changes
+                    androidx.compose.runtime.LaunchedEffect(scrollPositionBinding.wrappedValue) {
+                        if let targetId = scrollPositionBinding.wrappedValue,
+                           let itemIndex = itemCollector.value.index(for: targetId) {
+                            if Animation.isInWithAnimation {
+                                listState.animateScrollToItem(itemIndex)
+                            } else {
+                                listState.scrollToItem(itemIndex)
+                            }
+                        }
+                    }
+                }
                 PreferenceValues.shared.contribute(context: context, key: ScrollToTopPreferenceKey.self, value: ScrollToTopAction(key: listState) {
                     coroutineScope.launch {
                         listState.animateScrollToItem(0)
