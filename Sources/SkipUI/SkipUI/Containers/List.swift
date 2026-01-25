@@ -133,7 +133,7 @@ public final class List : View, Renderable {
     }
     
     // SKIP @bridge
-    public init(bridgedContent: any View, getSingleSelection: (() -> AnyHashable?)? = nil, setSingleSelection: ((AnyHashable?) -> Void)? = nil, getMultiSelection: (() -> Set<AnyHashable>)? = nil, setMultiSelection: ((Set<AnyHashable>) -> Void)? = nil) {
+    public init(bridgedContent: any View, getSingleSelection: (() -> Any?)? = nil, setSingleSelection: ((Any?) -> Void)? = nil, getMultiSelection: (() -> Set<AnyHashable>)? = nil, setMultiSelection: ((Set<AnyHashable>) -> Void)? = nil) {
         if let forEach = bridgedContent as? ForEach {
             self.fixedContent = nil
             self.forEach = forEach
@@ -142,14 +142,18 @@ public final class List : View, Renderable {
             self.forEach = nil
         }
         self.itemTransformer = nil
-        
+
         // Convert closure-based parameters to bindings
+        // Note: We use Any? for bridging to support SwiftHashable from skip-fuse-ui
         if let getSingle = getSingleSelection, let setSingle = setSingleSelection {
-            self.singleSelectionBinding = Binding<AnyHashable?>(get: getSingle, set: setSingle)
+            self.singleSelectionBinding = Binding<AnyHashable?>(
+                get: { getSingle() as? AnyHashable },
+                set: { setSingle($0) }
+            )
         } else {
             self.singleSelectionBinding = nil
         }
-        
+
         if let getMulti = getMultiSelection, let setMulti = setMultiSelection {
             self.multiSelectionBinding = Binding<Set<AnyHashable>>(get: getMulti, set: setMulti)
         } else {
@@ -451,34 +455,40 @@ public final class List : View, Renderable {
             } else {
                 actionModifier = Modifier
             }
-            let selectionModifier = if isSelected {
-                actionModifier.then(modifier).background(androidx.compose.material3.MaterialTheme.colorScheme.secondaryContainer)
-            } else {
-                actionModifier.then(modifier)
-            }
-            
+            let itemModifier = actionModifier.then(modifier)
+
             if let badge {
-                Row(modifier: selectionModifier, horizontalArrangement: Arrangement.SpaceBetween, verticalAlignment: androidx.compose.ui.Alignment.CenterVertically) {
+                Row(modifier: itemModifier, horizontalArrangement: Arrangement.SpaceBetween, verticalAlignment: androidx.compose.ui.Alignment.CenterVertically) {
                     Box(modifier: Modifier.weight(Float(1.0)), contentAlignment: androidx.compose.ui.Alignment.CenterStart) {
                         item.RenderListItem(context: context, modifiers: listOf())
                     }
                     RenderBadge(badge: badge, prominence: badgeModifier.prominence ?? .standard, context: context)
                 }
             } else {
-                Box(modifier: selectionModifier, contentAlignment: androidx.compose.ui.Alignment.CenterStart) {
+                Box(modifier: itemModifier, contentAlignment: androidx.compose.ui.Alignment.CenterStart) {
                     item.RenderListItem(context: context, modifiers: listOf())
                 }
             }
         } else {
+            // For non-list-item views, still apply selection handling if we have a selection binding
+            let actionModifier: Modifier
+            if let selectionAction = selectionAction {
+                let isDisabled = !EnvironmentValues.shared.isEnabled || item.forEachModifier { ($0 as? DisabledModifier)?.disabled } == true
+                actionModifier = Modifier.clickable(onClick: selectionAction, enabled: !isDisabled)
+            } else {
+                actionModifier = Modifier
+            }
+            let itemModifier = actionModifier.then(modifier)
+
             if let badge {
-                Row(modifier: modifier, horizontalArrangement: Arrangement.SpaceBetween, verticalAlignment: androidx.compose.ui.Alignment.CenterVertically) {
+                Row(modifier: itemModifier, horizontalArrangement: Arrangement.SpaceBetween, verticalAlignment: androidx.compose.ui.Alignment.CenterVertically) {
                     Box(modifier: Modifier.weight(Float(1.0)), contentAlignment: androidx.compose.ui.Alignment.CenterStart) {
                         item.Render(context: context)
                     }
                     RenderBadge(badge: badge, prominence: badgeModifier.prominence ?? .standard, context: context)
                 }
             } else {
-                Box(modifier: modifier, contentAlignment: androidx.compose.ui.Alignment.CenterStart) {
+                Box(modifier: itemModifier, contentAlignment: androidx.compose.ui.Alignment.CenterStart) {
                     item.Render(context: context)
                 }
             }
