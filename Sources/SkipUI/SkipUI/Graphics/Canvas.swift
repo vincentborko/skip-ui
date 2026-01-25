@@ -81,7 +81,9 @@ extension Canvas : Renderable {
         let density = LocalDensity.current
         let textMeasurer = rememberTextMeasurer()
         
-        Canvas(modifier: context.modifier) { drawScope in
+        // SKIP INSERT: androidx.compose.foundation.
+        Canvas(modifier: context.modifier) {
+            let drawScope = $0
             let size = CGSize(width: CGFloat(drawScope.size.width / density.density), height: CGFloat(drawScope.size.height / density.density))
             var graphicsContext = GraphicsContext(drawScope: drawScope, density: density, textMeasurer: textMeasurer, size: size)
             renderer(&graphicsContext, size)

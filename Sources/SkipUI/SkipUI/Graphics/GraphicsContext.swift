@@ -151,7 +151,7 @@ public struct GraphicsContext {
     }
 
     /// Adds a path to the context's array of clip shapes.
-    public mutating func clip(to path: Path, style: FillStyle = FillStyle(), options: GraphicsContext.ClipOptions = ClipOptions()) {
+    public mutating func clip(to path: SkipUI.Path, style: FillStyle = FillStyle(), options: GraphicsContext.ClipOptions = ClipOptions()) {
         #if SKIP
         let composePath = path.asComposePath(density: density)
         state.clipPaths.append(composePath)
@@ -180,7 +180,7 @@ public struct GraphicsContext {
     }
 
     /// Draws a path into the context and fills the outlined region.
-    public func fill(_ path: Path, with shading: GraphicsContext.Shading, style: FillStyle = FillStyle()) {
+    public func fill(_ path: SkipUI.Path, with shading: GraphicsContext.Shading, style: FillStyle = FillStyle()) {
         #if SKIP
         let composePath = path.asComposePath(density: density)
         let brush = shading.asBrush()
@@ -198,7 +198,7 @@ public struct GraphicsContext {
     }
 
     /// Draws a path into the context with a specified stroke style.
-    public func stroke(_ path: Path, with shading: GraphicsContext.Shading, style: StrokeStyle) {
+    public func stroke(_ path: SkipUI.Path, with shading: GraphicsContext.Shading, style: StrokeStyle) {
         #if SKIP
         let composePath = path.asComposePath(density: density)
         let brush = shading.asBrush()
@@ -217,7 +217,7 @@ public struct GraphicsContext {
     }
 
     /// Draws a path into the context with a specified line width.
-    public func stroke(_ path: Path, with shading: GraphicsContext.Shading, lineWidth: CGFloat = 1) {
+    public func stroke(_ path: SkipUI.Path, with shading: GraphicsContext.Shading, lineWidth: CGFloat = 1) {
         let strokeStyle = StrokeStyle(lineWidth: lineWidth)
         stroke(path, with: shading, style: strokeStyle)
     }

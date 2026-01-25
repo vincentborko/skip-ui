@@ -1062,7 +1062,7 @@ public struct SimultaneousGestureValue<FirstValue, SecondValue> {
 
 // SKIP @bridge
 public struct SimultaneousGesture<First: Gesture, Second: Gesture> : Gesture, BridgedGesture {
-    public typealias Value = SimultaneousGestureValue<First.V, Second.V>
+    public typealias Value = SimultaneousGestureValue<Any?, Any?>
     public typealias V = Value
     
     public let first: First

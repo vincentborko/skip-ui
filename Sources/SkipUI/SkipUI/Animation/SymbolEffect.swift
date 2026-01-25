@@ -386,4 +386,26 @@ extension SymbolEffect where Self == WiggleSymbolEffect {
     }
 }
 
+#else
+// SKIP_BRIDGE mode - provide minimal protocol definitions for bridge generation
+public protocol SymbolEffect {}
+public protocol IndefiniteSymbolEffect: SymbolEffect {}
+public protocol DiscreteSymbolEffect: SymbolEffect {}
+
+public struct SymbolEffectOptions: Equatable {
+    public static let `default` = SymbolEffectOptions()
+}
+
+// These structs need to exist for the bridge but don't need implementation
+public struct BounceSymbolEffect: IndefiniteSymbolEffect, DiscreteSymbolEffect {}
+public struct PulseSymbolEffect: IndefiniteSymbolEffect {}
+public struct VariableColorSymbolEffect: IndefiniteSymbolEffect {}
+public struct ScaleSymbolEffect: DiscreteSymbolEffect {}
+public struct ReplaceSymbolEffect: DiscreteSymbolEffect {}
+public struct AppearSymbolEffect: DiscreteSymbolEffect {}
+public struct DisappearSymbolEffect: DiscreteSymbolEffect {}
+public struct BreatheSymbolEffect: IndefiniteSymbolEffect {}
+public struct RotateSymbolEffect: IndefiniteSymbolEffect {}
+public struct WiggleSymbolEffect: IndefiniteSymbolEffect {}
+
 #endif
