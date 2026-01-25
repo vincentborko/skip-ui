@@ -1060,7 +1060,7 @@ public struct SimultaneousGestureValue<FirstValue, SecondValue> {
     public var second: SecondValue?
 }
 
-// SKIP @bridge
+// SimultaneousGesture cannot be bridged due to generic constraint limitations
 public struct SimultaneousGesture<First: Gesture, Second: Gesture> : Gesture, BridgedGesture {
     public typealias Value = SimultaneousGestureValue<Any?, Any?>
     public typealias V = Value
@@ -1068,7 +1068,6 @@ public struct SimultaneousGesture<First: Gesture, Second: Gesture> : Gesture, Br
     public let first: First
     public let second: Second
     
-    // SKIP @bridge
     public init(first: First, second: Second) {
         self.first = first
         self.second = second

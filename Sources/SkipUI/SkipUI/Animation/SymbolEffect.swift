@@ -391,6 +391,7 @@ public protocol SymbolEffect {}
 public protocol IndefiniteSymbolEffect: SymbolEffect {}
 public protocol DiscreteSymbolEffect: SymbolEffect {}
 
+// SKIP_BRIDGE
 public struct SymbolEffectOptions: Equatable {
     public static let `default` = SymbolEffectOptions()
     public static func speed(_ speed: Double) -> SymbolEffectOptions { SymbolEffectOptions() }

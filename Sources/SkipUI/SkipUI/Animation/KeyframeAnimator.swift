@@ -185,10 +185,12 @@ struct CombinedKeyframeContent : KeyframeTrackContent {
 
 #else
 // SKIP_BRIDGE mode - provide minimal definitions for bridge generation
+// SKIP_BRIDGE
 public protocol Keyframes {
     // Protocol for keyframes
 }
 
+// SKIP_BRIDGE  
 public protocol KeyframeTrackContent {
     // Protocol for keyframe track content  
 }

@@ -1205,7 +1205,7 @@ extension View {
         #endif
     }
     
-    // SKIP @bridge
+    // Symbol effects are not bridgeable due to SymbolEffectOptions type
     public func symbolEffect<T>(_ effect: T, options: SymbolEffectOptions = .default, isActive: Bool = true) -> some View where T: IndefiniteSymbolEffect, T: SymbolEffect {
         #if SKIP
         return ModifiedContent(content: self, modifier: IndefiniteSymbolEffectModifier(effect: effect, options: options, isActive: isActive))
@@ -1214,7 +1214,7 @@ extension View {
         #endif
     }
     
-    // SKIP @bridge
+    // Symbol effects are not bridgeable due to SymbolEffectOptions type
     public func symbolEffect<T, U>(_ effect: T, options: SymbolEffectOptions = .default, value: U) -> some View where T: DiscreteSymbolEffect, T: SymbolEffect, U: Equatable {
         #if SKIP
         return ModifiedContent(content: self, modifier: DiscreteSymbolEffectModifier(effect: effect, options: options, value: value))

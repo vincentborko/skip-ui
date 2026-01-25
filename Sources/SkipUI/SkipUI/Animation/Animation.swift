@@ -2097,11 +2097,13 @@ extension Never : KeyframeTrackContent {
 
 #else
 // SKIP_BRIDGE mode - provide minimal definitions for bridge generation
+// SKIP_BRIDGE
 public protocol Animatable {
     associatedtype AnimatableData : VectorArithmetic
     var animatableData: AnimatableData { get set }
 }
 
+// SKIP_BRIDGE
 public protocol VectorArithmetic : AdditiveArithmetic {
     mutating func scale(by rhs: Double)
     var magnitudeSquared: Double { get }

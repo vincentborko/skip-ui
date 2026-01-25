@@ -391,7 +391,7 @@ extension View {
         return self
     }
 
-    // SKIP @bridge
+    // Cannot bridge due to Binding<(any Hashable)?> type
     public func scrollPosition(id: Binding<(any Hashable)?>) -> some View {
         #if SKIP
         return environment(\._scrollPositionID, id, affectsEvaluate: false)
@@ -405,7 +405,7 @@ extension View {
         return self
     }
 
-    // SKIP @bridge
+    // Cannot bridge - returns some View
     public func scrollTarget(isEnabled: Bool = true) -> some View {
         #if SKIP
         return environment(\._scrollTargetEnabled, isEnabled, affectsEvaluate: false)
@@ -414,7 +414,7 @@ extension View {
         #endif
     }
 
-    // SKIP @bridge
+    // Cannot bridge - returns any View
     public func scrollTargetBehavior(_ behavior: any ScrollTargetBehavior) -> any View {
         #if SKIP
         return environment(\._scrollTargetBehavior, behavior, affectsEvaluate: false)
@@ -423,7 +423,7 @@ extension View {
         #endif
     }
 
-    // SKIP @bridge
+    // Cannot bridge - returns any View
     public func scrollTargetLayout(isEnabled: Bool = true) -> any View {
         // We do not support specifying scroll targets, but we want the natural pattern of using this modifier
         // on the VStack/HStack content of a ScrollView to work without #if SKIP-ing it out
