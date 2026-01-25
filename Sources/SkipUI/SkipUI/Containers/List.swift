@@ -435,7 +435,8 @@ public final class List : View, Renderable {
             // Apply selection background
             var finalModifier = actionModifier.then(modifier)
             if isSelected {
-                finalModifier = finalModifier.background(Color.accentColor.opacity(0.2))
+                // Use Compose color directly to avoid @Composable context issues
+                finalModifier = finalModifier.background(androidx.compose.ui.graphics.Color(0x332196F3)) // Light blue with 20% opacity
             }
             
             if let badge {
@@ -445,7 +446,7 @@ public final class List : View, Renderable {
                         if showMultiSelectControls {
                             androidx.compose.material3.Checkbox(
                                 checked = isSelected,
-                                onCheckedChange = { _ in }, // Handled by row click
+                                onCheckedChange = { _ in }, // Empty lambda - handled by row click
                                 modifier = Modifier.padding(end = 8.dp)
                             )
                         }
@@ -461,7 +462,7 @@ public final class List : View, Renderable {
                     if showMultiSelectControls {
                         androidx.compose.material3.Checkbox(
                             checked = isSelected,
-                            onCheckedChange = { _ in }, // Handled by row click
+                            onCheckedChange = { _ in }, // Empty lambda - handled by row click
                             modifier = Modifier.padding(end = 8.dp)
                         )
                     }
@@ -492,7 +493,8 @@ public final class List : View, Renderable {
                 }
                 var mod = Modifier.clickable(onClick: combinedAction).then(modifier)
                 if isSelected {
-                    mod = mod.background(Color.accentColor.opacity(0.2))
+                    // Use Compose color directly to avoid @Composable context issues
+                    mod = mod.background(androidx.compose.ui.graphics.Color(0x332196F3)) // Light blue with 20% opacity
                 }
                 mod
             } else {
@@ -506,7 +508,7 @@ public final class List : View, Renderable {
                         if showMultiSelectControls {
                             androidx.compose.material3.Checkbox(
                                 checked = isSelected,
-                                onCheckedChange = { _ in },
+                                onCheckedChange = nil,
                                 modifier = Modifier.padding(end = 8.dp)
                             )
                         }
@@ -522,7 +524,7 @@ public final class List : View, Renderable {
                     if showMultiSelectControls {
                         androidx.compose.material3.Checkbox(
                             checked = isSelected,
-                            onCheckedChange = { _ in },
+                            onCheckedChange = nil,
                             modifier = Modifier.padding(end = 8.dp)
                         )
                     }

@@ -9,6 +9,7 @@ import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.DrawStyle
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 
 public enum CGLineCap : Int {
@@ -48,6 +49,10 @@ public struct StrokeStyle : Equatable {
     #if SKIP
     @Composable func asDrawStyle() -> DrawStyle {
         let density = LocalDensity.current
+        return asDrawStyle(density: density)
+    }
+    
+    func asDrawStyle(density: Density) -> DrawStyle {
         let widthPx = with(density) { lineWidth.dp.toPx() }
        
         let cap: StrokeCap
