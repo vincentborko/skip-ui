@@ -120,6 +120,7 @@ extension View {
     // Removed safeAreaPadding functions as EdgeInsets is not bridged
     // and these are unavailable anyway
 
+    #if !SKIP_BRIDGE
     @available(*, unavailable)
     public func safeAreaPadding(_ length: CGFloat) -> some View {
         return self
@@ -134,6 +135,7 @@ extension View {
     public func safeAreaBar(edge: HorizontalEdge, alignment: VerticalAlignment = .center, spacing: CGFloat? = nil, @ViewBuilder content: () -> some View) -> some View {
         return self
     }
+    #endif
 }
 
 #endif
