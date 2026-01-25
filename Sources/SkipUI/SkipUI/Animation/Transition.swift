@@ -464,7 +464,6 @@ extension View {
     }
 
     // SKIP @bridge
-    // SKIP @bridge
     public func contentTransition(_ transition: ContentTransition) -> any View {
         #if SKIP
         return ModifiedContent(content: self, modifier: ContentTransitionModifier(transition: transition))
