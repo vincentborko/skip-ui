@@ -61,10 +61,12 @@ import org.burnoutcrew.reorderable.reorderable
 #elseif canImport(CoreGraphics)
 import struct CoreGraphics.CGFloat
 #endif
+#endif // !SKIP_BRIDGE
 
 /// Corner radius for list sections.
 let listSectionCornerRadius = 8.0
 
+#if !SKIP_BRIDGE
 // SKIP @bridge
 // SKIP INSERT: @Stable // Otherwise Compose recomposes all internal @Composable funcs because 'this' is unstable
 public final class List : View, Renderable {
@@ -98,6 +100,7 @@ public final class List : View, Renderable {
         self.init(fixedContent: content())
     }
 
+    #if !SKIP
     public convenience init(selection: Binding<AnyHashable?>, @ViewBuilder content: () -> any View) {
         self.init(fixedContent: content(), singleSelection: selection)
     }
@@ -105,6 +108,7 @@ public final class List : View, Renderable {
     public convenience init(selection: Binding<Set<AnyHashable>>, @ViewBuilder content: () -> any View) {
         self.init(fixedContent: content(), multiSelection: selection)
     }
+    #endif
 
     // SKIP @bridge
     public init(bridgedContent: any View) {
@@ -854,8 +858,10 @@ public func List<Data, ObjectType>(_ data: Binding<Data>, id: (ObjectType) -> An
         return rowContent(binding)
     }, editActions: editActions)
 }
+#endif // SKIP
 
-// List constructors with single selection support
+// List constructors with selection support are disabled - not implemented in skip-ui
+#if false
 public func List<ObjectType, SelectionValue>(_ data: any RandomAccessCollection<ObjectType>, selection: Binding<SelectionValue?>, @ViewBuilder rowContent: (ObjectType) -> any View) -> List where SelectionValue: Hashable {
     let singleSelectionBinding = Binding<AnyHashable?>(
         get: { selection.wrappedValue as? AnyHashable },
@@ -1636,5 +1642,5 @@ extension List {
 //    @MainActor public init<Data, ID, RowContent>(_ data: Binding<Data>, id: KeyPath<Data.Element, ID>, editActions: EditActions /* <Data> */, selection: Binding<SelectionValue?>?, @ViewBuilder rowContent: @escaping (Binding<Data.Element>) -> RowContent) where Content == ForEach<IndexedIdentifierCollection<Data, ID>, ID, EditableCollectionContent<RowContent, Data>>, Data : MutableCollection, Data : RandomAccessCollection, ID : Hashable, RowContent : View, Data.Index : Hashable { fatalError() }
 }
  */
-#endif
-#endif
+#endif // false
+#endif // !SKIP_BRIDGE

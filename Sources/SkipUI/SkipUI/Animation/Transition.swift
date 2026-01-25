@@ -80,7 +80,7 @@ extension Transition {
     #endif
 }
 
-// SKIP @bridge
+// ContentTransition cannot be bridged due to RawRepresentable conformance issues
 public struct ContentTransition : RawRepresentable, Equatable {
     public typealias RawValue = Int
     public let rawValue: Int
@@ -464,7 +464,7 @@ extension View {
         #endif
     }
 
-    // SKIP @bridge
+    // Cannot bridge - ContentTransition is not a bridged type
     public func contentTransition(_ transition: ContentTransition) -> any View {
         #if SKIP
         return ModifiedContent(content: self, modifier: ContentTransitionModifier(transition: transition))

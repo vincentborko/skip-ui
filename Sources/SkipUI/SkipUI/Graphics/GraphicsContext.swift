@@ -155,7 +155,7 @@ public struct GraphicsContext {
         // Create empty path for now - proper Path conversion needs fixing
         let composePath = androidx.compose.ui.graphics.Path()
         // TODO: Convert path to Compose Path
-        state.clipPaths.append(composePath)
+        state.clipPaths.add(composePath)
         #endif
     }
     
@@ -353,14 +353,14 @@ public struct GraphicsContext {
 
     #if SKIP
     private func combineClipPaths() -> androidx.compose.ui.graphics.Path? {
-        if state.clipPaths.isEmpty {
+        if state.clipPaths.isEmpty() {
             return nil
         }
         
-        var combinedPath = state.clipPaths.first!
+        var combinedPath = state.clipPaths.get(0)
         for i in 1..<state.clipPaths.size {
             let newPath = androidx.compose.ui.graphics.Path()
-            newPath.op(combinedPath, state.clipPaths[i], PathOperation.Intersect)
+            newPath.op(combinedPath, state.clipPaths.get(i), PathOperation.Intersect)
             combinedPath = newPath
         }
         return combinedPath
@@ -451,6 +451,7 @@ extension GraphicsContext {
     public struct ClipOptions : OptionSet {
         public let rawValue: UInt32
         public init(rawValue: UInt32) { self.rawValue = rawValue }
+        public init() { self.rawValue = UInt32(0) }
         
         /// An option to invert the shape or layer alpha as the clip mask.
         public static let inverse = ClipOptions(rawValue: UInt32(1 << 0))
@@ -599,7 +600,7 @@ extension GraphicsContext {
                 colors.add(androidx.compose.ui.graphics.Color.Black)
                 colors.add(androidx.compose.ui.graphics.Color.White)
                 Brush.linearGradient(
-                    colors = colors.toList(),
+                    colors = colors,
                     start = Offset(startPoint.x.toFloat(), startPoint.y.toFloat()),
                     end = Offset(endPoint.x.toFloat(), endPoint.y.toFloat())
                 )
@@ -619,7 +620,7 @@ extension GraphicsContext {
                 colors.add(androidx.compose.ui.graphics.Color.Black)
                 colors.add(androidx.compose.ui.graphics.Color.White)
                 Brush.radialGradient(
-                    colors = colors.toList(),
+                    colors = colors,
                     center = Offset(center.x.toFloat(), center.y.toFloat()),
                     radius = endRadius.toFloat()
                 )
@@ -639,7 +640,7 @@ extension GraphicsContext {
                 colors.add(androidx.compose.ui.graphics.Color.Black)
                 colors.add(androidx.compose.ui.graphics.Color.White)
                 Brush.sweepGradient(
-                    colors = colors.toList(),
+                    colors = colors,
                     center = Offset(center.x.toFloat(), center.y.toFloat())
                 )
             }
@@ -653,6 +654,7 @@ extension GraphicsContext {
     public struct GradientOptions : OptionSet {
         public let rawValue: UInt32
         public init(rawValue: UInt32) { self.rawValue = rawValue }
+        public init() { self.rawValue = UInt32(0) }
         
         /// An option that repeats the gradient outside its nominal range.
         public static let `repeat` = GradientOptions(rawValue: UInt32(1 << 0))
@@ -677,6 +679,7 @@ extension GraphicsContext {
     public struct FilterOptions : OptionSet {
         public let rawValue: UInt32
         public init(rawValue: UInt32) { self.rawValue = rawValue }
+        public init() { self.rawValue = UInt32(0) }
         
         /// An option that causes the filter to perform calculations in a linear color space.
         public static let linearColor = FilterOptions(rawValue: UInt32(1 << 0))
