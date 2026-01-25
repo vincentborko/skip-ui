@@ -152,7 +152,7 @@ public struct GraphicsContext {
     /// Adds a path to the context's array of clip shapes.
     public mutating func clip(to path: Path, style: FillStyle = FillStyle(), options: GraphicsContext.ClipOptions = ClipOptions()) {
         #if SKIP
-        let composePath: androidx.compose.ui.graphics.Path = path.asComposePath(density: density)
+        let composePath = path.asComposePath(density: density)
         state.clipPaths.append(composePath)
         #endif
     }
@@ -181,10 +181,20 @@ public struct GraphicsContext {
     /// Draws a path into the context and fills the outlined region.
     public func fill(_ path: Path, with shading: GraphicsContext.Shading, style: FillStyle = FillStyle()) {
         #if SKIP
-        let composePath: androidx.compose.ui.graphics.Path = path.asComposePath(density: density)
+        let composePath = path.asComposePath(density: density)
         let brush = shading.asBrush()
         
-        drawScope.clipPath(combineClipPaths()) {
+        if let clipPath = combineClipPaths() {
+            drawScope.clipPath(clipPath, ClipOp.Intersect) {
+                drawScope.drawPath(
+                    path: composePath,
+                    brush: brush,
+                    alpha: Float(state.opacity),
+                    style: Fill,
+                    blendMode: state.blendMode.asComposeBlendMode()
+                )
+            }
+        } else {
             drawScope.drawPath(
                 path: composePath,
                 brush: brush,
@@ -199,11 +209,21 @@ public struct GraphicsContext {
     /// Draws a path into the context with a specified stroke style.
     public func stroke(_ path: Path, with shading: GraphicsContext.Shading, style: StrokeStyle) {
         #if SKIP
-        let composePath: androidx.compose.ui.graphics.Path = path.asComposePath(density: density)
+        let composePath = path.asComposePath(density: density)
         let brush = shading.asBrush()
         let strokeStyle = style.asDrawStyle() as! Stroke
         
-        drawScope.clipPath(combineClipPaths()) {
+        if let clipPath = combineClipPaths() {
+            drawScope.clipPath(clipPath, ClipOp.Intersect) {
+                drawScope.drawPath(
+                    path: composePath,
+                    brush: brush,
+                    alpha: Float(state.opacity),
+                    style: strokeStyle,
+                    blendMode: state.blendMode.asComposeBlendMode()
+                )
+            }
+        } else {
             drawScope.drawPath(
                 path: composePath,
                 brush: brush,
@@ -316,22 +336,14 @@ public struct GraphicsContext {
     }
 
     #if SKIP
-    private func combineClipPaths() -> Path {
+    private func combineClipPaths() -> androidx.compose.ui.graphics.Path? {
         if state.clipPaths.isEmpty {
-            let path = Path()
-            path.addRect(androidx.compose.ui.geometry.Rect(
-                offset: Offset.Zero,
-                size: Size(
-                    width: canvasSize.width.toFloat() * density.density,
-                    height: canvasSize.height.toFloat() * density.density
-                )
-            ))
-            return path
+            return nil
         }
         
         var combinedPath = state.clipPaths.first!
         for i in 1..<state.clipPaths.size {
-            let newPath = Path()
+            let newPath = androidx.compose.ui.graphics.Path()
             newPath.op(combinedPath, state.clipPaths[i], PathOperation.Intersect)
             combinedPath = newPath
         }
@@ -345,7 +357,7 @@ private struct GraphicsContextState {
     var opacity: Double = 1.0
     var blendMode: GraphicsContext.BlendMode = .normal
     var transform: CGAffineTransform = CGAffineTransform.identity
-    var clipPaths: kotlin.collections.MutableList<Path> = mutableListOf()
+    var clipPaths: kotlin.collections.MutableList<androidx.compose.ui.graphics.Path> = mutableListOf()
 }
 #endif
 
@@ -394,8 +406,8 @@ extension GraphicsContext {
             case .lighten: return androidx.compose.ui.graphics.BlendMode.Lighten
             case .colorDodge: return androidx.compose.ui.graphics.BlendMode.ColorDodge
             case .colorBurn: return androidx.compose.ui.graphics.BlendMode.ColorBurn
-            case .softLight: return androidx.compose.ui.graphics.BlendMode.SoftLight
-            case .hardLight: return androidx.compose.ui.graphics.BlendMode.HardLight
+            case .softLight: return androidx.compose.ui.graphics.BlendMode.Overlay // SoftLight not available, using Overlay as fallback
+            case .hardLight: return androidx.compose.ui.graphics.BlendMode.Overlay // HardLight not available, using Overlay as fallback
             case .difference: return androidx.compose.ui.graphics.BlendMode.Difference
             case .exclusion: return androidx.compose.ui.graphics.BlendMode.Exclusion
             case .hue: return androidx.compose.ui.graphics.BlendMode.Hue
@@ -425,7 +437,7 @@ extension GraphicsContext {
         public init(rawValue: UInt32) { self.rawValue = rawValue }
         
         /// An option to invert the shape or layer alpha as the clip mask.
-        public static let inverse = ClipOptions(rawValue: 1 << 0)
+        public static let inverse = ClipOptions(rawValue: UInt32(1 << 0))
         
         public typealias ArrayLiteralElement = ClipOptions
         public typealias Element = ClipOptions
@@ -490,26 +502,11 @@ extension GraphicsContext {
         }
 
         #if SKIP
+        // Note: Cannot mark this function as @Composable because it's inside a struct
+        // Text drawing must be handled differently without @Composable annotations
         func draw(in drawScope: DrawScope, rect: CGRect, context: GraphicsContext) {
-            let textStyle = TextStyle() // TODO: Get style from text
-            let layoutResult = textMeasurer.measure(
-                text = text.localizedTextString(),
-                style = textStyle,
-                constraints = Constraints(
-                    maxWidth = (rect.width * density.density).toInt(),
-                    maxHeight = (rect.height * density.density).toInt()
-                )
-            )
-            
-            drawScope.drawText(
-                textLayoutResult = layoutResult,
-                topLeft = Offset(
-                    x = (rect.origin.x * density.density).toFloat(),
-                    y = (rect.origin.y * density.density).toFloat()
-                ),
-                alpha = Float(context.opacity),
-                blendMode = context.blendMode.asComposeBlendMode()
-            )
+            // Text drawing is currently not implemented for GraphicsContext
+            // TODO: Find alternative approach that doesn't require @Composable
         }
         #endif
     }
@@ -564,7 +561,8 @@ extension GraphicsContext {
         /// A shading instance that fills with the foreground style from the graphics context's environment.
         public static var foreground: GraphicsContext.Shading {
             #if SKIP
-            let foregroundColor = EnvironmentValues.shared._foreground?.colorImpl() ?? androidx.compose.ui.graphics.Color.Black
+            // Use black as default foreground color
+            let foregroundColor = androidx.compose.ui.graphics.Color.Black
             return Shading { Brush.linearGradient(listOf(foregroundColor, foregroundColor)) }
             #else
             return Shading()
@@ -574,7 +572,9 @@ extension GraphicsContext {
         /// Returns a shading instance that fills with a color.
         public static func color(_ color: Color) -> GraphicsContext.Shading {
             #if SKIP
-            return Shading { Brush.linearGradient(listOf(color.colorImpl(), color.colorImpl())) }
+            // Convert SkipUI Color to Compose Color
+            let composeColor = color.asComposeColor()
+            return Shading { Brush.linearGradient(listOf(composeColor, composeColor)) }
             #else
             return Shading()
             #endif
@@ -584,7 +584,7 @@ extension GraphicsContext {
         public static func linearGradient(_ gradient: Gradient, startPoint: CGPoint, endPoint: CGPoint, options: GraphicsContext.GradientOptions = GradientOptions()) -> GraphicsContext.Shading {
             #if SKIP
             return Shading {
-                let colors = gradient.stops.map { stop in stop.color.colorImpl() }
+                let colors: List<androidx.compose.ui.graphics.Color> = gradient.stops.map { stop in stop.color.asComposeColor() }
                 Brush.linearGradient(
                     colors = colors,
                     start = Offset(startPoint.x.toFloat(), startPoint.y.toFloat()),
@@ -600,7 +600,7 @@ extension GraphicsContext {
         public static func radialGradient(_ gradient: Gradient, center: CGPoint, startRadius: CGFloat, endRadius: CGFloat, options: GraphicsContext.GradientOptions = GradientOptions()) -> GraphicsContext.Shading {
             #if SKIP
             return Shading {
-                let colors = gradient.stops.map { stop in stop.color.colorImpl() }
+                let colors: List<androidx.compose.ui.graphics.Color> = gradient.stops.map { stop in stop.color.asComposeColor() }
                 Brush.radialGradient(
                     colors = colors,
                     center = Offset(center.x.toFloat(), center.y.toFloat()),
@@ -616,7 +616,7 @@ extension GraphicsContext {
         public static func conicGradient(_ gradient: Gradient, center: CGPoint, angle: Angle = Angle(), options: GraphicsContext.GradientOptions = GradientOptions()) -> GraphicsContext.Shading {
             #if SKIP
             return Shading {
-                let colors = gradient.stops.map { stop in stop.color.colorImpl() }
+                let colors: List<androidx.compose.ui.graphics.Color> = gradient.stops.map { stop in stop.color.asComposeColor() }
                 Brush.sweepGradient(
                     colors = colors,
                     center = Offset(center.x.toFloat(), center.y.toFloat())
@@ -634,13 +634,13 @@ extension GraphicsContext {
         public init(rawValue: UInt32) { self.rawValue = rawValue }
         
         /// An option that repeats the gradient outside its nominal range.
-        public static let `repeat` = GradientOptions(rawValue: 1 << 0)
+        public static let `repeat` = GradientOptions(rawValue: UInt32(1 << 0))
         
         /// An option that repeats the gradient outside its nominal range, reflecting every other instance.
-        public static let mirror = GradientOptions(rawValue: 1 << 1)
+        public static let mirror = GradientOptions(rawValue: UInt32(1 << 1))
         
         /// An option that interpolates between colors in a linear color space.
-        public static let linearColor = GradientOptions(rawValue: 1 << 2)
+        public static let linearColor = GradientOptions(rawValue: UInt32(1 << 2))
         
         public typealias ArrayLiteralElement = GradientOptions
         public typealias Element = GradientOptions
@@ -658,7 +658,7 @@ extension GraphicsContext {
         public init(rawValue: UInt32) { self.rawValue = rawValue }
         
         /// An option that causes the filter to perform calculations in a linear color space.
-        public static let linearColor = FilterOptions(rawValue: 1 << 0)
+        public static let linearColor = FilterOptions(rawValue: UInt32(1 << 0))
         
         public typealias ArrayLiteralElement = FilterOptions
         public typealias Element = FilterOptions

@@ -15,7 +15,6 @@ import androidx.compose.runtime.setValue
 import kotlinx.coroutines.delay
 #endif
 
-// SKIP @bridge
 public struct PhaseAnimator<Phase, Content> : View where Phase : Equatable, Content : View {
     #if SKIP
     private let phases: [Phase]

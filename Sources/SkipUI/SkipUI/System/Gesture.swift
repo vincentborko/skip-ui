@@ -1081,24 +1081,4 @@ public protocol Gesture {
     associatedtype Body : Gesture
     var body: Body { get }
 }
-
-public struct SimultaneousGestureValue<FirstValue, SecondValue> {
-    public var first: FirstValue?
-    public var second: SecondValue?
-}
-
-public struct SimultaneousGesture<First: Gesture, Second: Gesture> : Gesture {
-    public typealias Value = SimultaneousGestureValue<First.Value, Second.Value>
-    public typealias Body = Never
-    
-    public let first: First
-    public let second: Second
-    
-    public init(first: First, second: Second) {
-        self.first = first
-        self.second = second
-    }
-    
-    public var body: Body { fatalError() }
-}
 #endif

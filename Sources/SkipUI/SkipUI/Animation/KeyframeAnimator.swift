@@ -24,17 +24,14 @@ import kotlinx.coroutines.launch
 // Note: Animatable protocol already exists in Animation.swift
 // We'll use the existing protocol
 
-// SKIP @bridge
 public protocol Keyframes {
     // Protocol for keyframe sequences
 }
 
-// SKIP @bridge
 public protocol KeyframeTrackContent {
     // Protocol for keyframe track content
 }
 
-// SKIP @bridge
 public struct KeyframeAnimator<Value, KeyframePath, Content> : View 
     where Value : Animatable, KeyframePath : Keyframes, Content : View {
     
@@ -112,7 +109,6 @@ public struct KeyframeAnimator<Value, KeyframePath, Content> : View
     #endif
 }
 
-// SKIP @bridge
 @resultBuilder
 public struct KeyframesBuilder<Value> where Value : Animatable {
     public static func buildBlock<K>(_ keyframes: K) -> K where K : Keyframes {
@@ -137,7 +133,6 @@ struct CombinedKeyframes : Keyframes {
 }
 #endif
 
-// SKIP @bridge
 public struct KeyframeTrack<Root, Value, Content> : Keyframes where Value : Animatable {
     #if SKIP
     // Skip doesn't support KeyPath, so we use a string representation
@@ -158,7 +153,6 @@ public struct KeyframeTrack<Root, Value, Content> : Keyframes where Value : Anim
     }
 }
 
-// SKIP @bridge
 @resultBuilder
 public struct KeyframeTrackContentBuilder<Value> where Value : Animatable {
     public static func buildBlock<K>(_ keyframe: K) -> K where K : KeyframeTrackContent {
@@ -197,7 +191,7 @@ public protocol KeyframeTrackContent {
 
 public struct KeyframeAnimator<Value, KeyframePath, Content> : View 
     where Value : Animatable, KeyframePath : Keyframes, Content : View {
-    public init(initialValue: Value, @ViewBuilder content: @escaping (KeyframeAnimatorContext<Value>) -> Content, @ViewBuilder keyframes: @escaping (Value) -> some View) { }
+    public init(initialValue: Value, content: @escaping (KeyframeAnimatorContext<Value>) -> Content, keyframes: @escaping (Value) -> some View) { }
     public var body: some View { EmptyView() }
 }
 
@@ -207,7 +201,7 @@ public struct KeyframeAnimatorContext<Value> where Value : Animatable {
 }
 
 public struct KeyframeTrack<Value, Root> : Keyframes where Value : Animatable {
-    public init(_ keyPath: WritableKeyPath<Root, Value>, @ViewBuilder content: () -> some View) { }
+    public init(_ keyPath: WritableKeyPath<Root, Value>, content: () -> some View) { }
 }
 
 @resultBuilder
