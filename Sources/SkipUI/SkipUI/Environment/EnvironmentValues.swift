@@ -802,6 +802,12 @@ extension EnvironmentValues {
         set { setBuiltinValue(key: "_nestedScrollConnection", value: newValue, defaultValue: { nil }) }
     }
 
+    /// Set by `View.onScrollGeometryChange(for:of:action:)`; read and driven by the enclosing `ScrollView`.
+    var _onScrollGeometryChange: ScrollGeometryChangeAction? {
+        get { builtinValue(key: "_onScrollGeometryChange", defaultValue: { nil }) as! ScrollGeometryChangeAction? }
+        set { setBuiltinValue(key: "_onScrollGeometryChange", value: newValue, defaultValue: { nil }) }
+    }
+
     var _onSubmitState: OnSubmitState? {
         get { builtinValue(key: "_onSubmitState", defaultValue: { nil }) as! OnSubmitState? }
         set { setBuiltinValue(key: "_onSubmitState", value: newValue, defaultValue: { nil }) }

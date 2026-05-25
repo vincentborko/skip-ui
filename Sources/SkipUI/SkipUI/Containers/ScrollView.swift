@@ -16,18 +16,25 @@ import androidx.compose.material.pullrefresh.PullRefreshState
 import androidx.compose.material.pullrefresh.pullRefresh
 import androidx.compose.material.pullrefresh.rememberPullRefreshState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 #elseif canImport(CoreGraphics)
 import struct CoreGraphics.CGFloat
+import struct CoreGraphics.CGPoint
 import struct CoreGraphics.CGRect
+import struct CoreGraphics.CGSize
 #endif
 
 // SKIP @bridge
@@ -111,6 +118,43 @@ public struct ScrollView : View, Renderable {
                 }
                 containerModifier = containerModifier.scrollDismissesKeyboardMode(EnvironmentValues.shared.scrollDismissesKeyboardMode)
 
+                // onScrollGeometryChange: when a handler was threaded in via the environment, observe the scroll
+                // state and container size off-composition (snapshotFlow) and report ScrollGeometry deltas. We avoid
+                // reading scrollState.value in composition so we don't recompose the whole ScrollView every frame.
+                if let scrollGeometryAction = EnvironmentValues.shared._onScrollGeometryChange {
+                    let scrollGeometryContainerSize = remember { mutableStateOf(IntSize.Zero) }
+                    containerModifier = containerModifier.onGloballyPositioned { scrollGeometryContainerSize.value = $0.size }
+                    let density = LocalDensity.current
+                    let updatedScrollGeometryAction = rememberUpdatedState(scrollGeometryAction)
+                    LaunchedEffect(scrollState, density) {
+                        var previousGeometry: ScrollGeometry? = nil
+                        snapshotFlow { () -> ScrollGeometry in
+                            let scale = Double(density.density)
+                            let sizePx = scrollGeometryContainerSize.value
+                            let containerWidth = Double(sizePx.width) / scale
+                            let containerHeight = Double(sizePx.height) / scale
+                            let offsetPoints = Double(scrollState.value) / scale
+                            let maxPoints = Double(scrollState.maxValue) / scale
+                            let contentOffset: CGPoint
+                            let contentSize: CGSize
+                            if wantsHorizontalScroll {
+                                contentOffset = CGPoint(x: offsetPoints, y: 0.0)
+                                contentSize = CGSize(width: containerWidth + maxPoints, height: containerHeight)
+                            } else {
+                                contentOffset = CGPoint(x: 0.0, y: offsetPoints)
+                                contentSize = CGSize(width: containerWidth, height: containerHeight + maxPoints)
+                            }
+                            return ScrollGeometry(contentOffset: contentOffset, contentSize: contentSize, containerSize: CGSize(width: containerWidth, height: containerHeight), contentInsets: EdgeInsets())
+                        }.collect { geometry in
+                            if previousGeometry == nil || previousGeometry != geometry {
+                                let oldGeometry = previousGeometry ?? geometry
+                                previousGeometry = geometry
+                                updatedScrollGeometryAction.value.action(oldGeometry, geometry)
+                            }
+                        }
+                    }
+                }
+
                 Box(modifier: containerModifier) {
                     // Apply content margins as padding to the scrolling content only when this ScrollView is managing scroll
                     // (when a lazy container is the child, it manages its own scroll and will apply margins itself)
@@ -131,6 +175,8 @@ public struct ScrollView : View, Renderable {
                         }
                         EnvironmentValues.shared.setValues {
                             $0.set_scrollViewAxes(axes)
+                            // This ScrollView consumed the handler; don't let a nested ScrollView fire it too.
+                            $0.set_onScrollGeometryChange(nil)
                             return ComposeResult.ok
                         } in: {
                             PreferenceValues.shared.collectPreferences([builtinScrollAxisSetCollector]) {
@@ -151,6 +197,69 @@ public struct ScrollView : View, Renderable {
     }
     #endif
 }
+
+// SKIP @bridge
+public struct ScrollGeometry {
+    public let contentOffset: CGPoint
+    public let contentSize: CGSize
+    public let containerSize: CGSize
+    public let contentInsets: EdgeInsets
+
+    public init(contentOffset: CGPoint, contentSize: CGSize, containerSize: CGSize, contentInsets: EdgeInsets) {
+        self.contentOffset = contentOffset
+        self.contentSize = contentSize
+        self.containerSize = containerSize
+        self.contentInsets = contentInsets
+    }
+
+    // SKIP @bridge
+    public var bridgedContentOffset: (CGFloat, CGFloat) {
+        return (contentOffset.x, contentOffset.y)
+    }
+
+    // SKIP @bridge
+    public var bridgedContentSize: (CGFloat, CGFloat) {
+        return (contentSize.width, contentSize.height)
+    }
+
+    // SKIP @bridge
+    public var bridgedContainerSize: (CGFloat, CGFloat) {
+        return (containerSize.width, containerSize.height)
+    }
+
+    // SKIP @bridge
+    public var bridgedContentInsets: (CGFloat, CGFloat, CGFloat, CGFloat) {
+        return (contentInsets.top, contentInsets.leading, contentInsets.bottom, contentInsets.trailing)
+    }
+}
+
+extension ScrollGeometry: Equatable {
+    // Compare component-wise rather than relying on CG-type Equatable synthesis under Skip.
+    public static func ==(lhs: ScrollGeometry, rhs: ScrollGeometry) -> Bool {
+        return lhs.contentOffset.x == rhs.contentOffset.x
+            && lhs.contentOffset.y == rhs.contentOffset.y
+            && lhs.contentSize.width == rhs.contentSize.width
+            && lhs.contentSize.height == rhs.contentSize.height
+            && lhs.containerSize.width == rhs.containerSize.width
+            && lhs.containerSize.height == rhs.containerSize.height
+            && lhs.contentInsets.top == rhs.contentInsets.top
+            && lhs.contentInsets.leading == rhs.contentInsets.leading
+            && lhs.contentInsets.bottom == rhs.contentInsets.bottom
+            && lhs.contentInsets.trailing == rhs.contentInsets.trailing
+    }
+}
+
+#if SKIP
+// Carries the change handler down to the enclosing ScrollView via the environment, so the
+// ScrollView can drive it from its own scroll state (the modifier itself has no scroll state).
+public final class ScrollGeometryChangeAction {
+    let action: (ScrollGeometry, ScrollGeometry) -> Void
+
+    init(action: @escaping (ScrollGeometry, ScrollGeometry) -> Void) {
+        self.action = action
+    }
+}
+#endif
 
 // SKIP @bridge
 public struct ScrollViewProxy {
@@ -444,6 +553,36 @@ extension View {
     @available(*, unavailable)
     public func scrollIndicatorsFlash(trigger value: some Equatable) -> some View {
         return self
+    }
+
+    // The Kotlin signature needs `where T: Any` (non-null); we declare the alias in this file because the
+    // equivalent `GeometryChangeType` in AdditionalViewModifiers.swift doesn't resolve across the merged Kotlin
+    // `View` extension. iOS gets the SwiftUI-matching `Equatable` bound; SKIP gets `Any`.
+    #if !SKIP
+    public typealias ScrollGeometryChangeType = Equatable
+    #else
+    public typealias ScrollGeometryChangeType = Any
+    #endif
+
+    public func onScrollGeometryChange<T: ScrollGeometryChangeType>(for type: T.Type, of transform: @escaping (ScrollGeometry) -> T, action: @escaping (_ oldValue: T, _ newValue: T) -> Void) -> any View {
+        return onScrollGeometryChangeErased(of: transform, action: action)
+    }
+
+    // Skip cannot bridge `T.Type`; the bridged entry point is this erased variant (mirrors `onGeometryChangeErased`).
+    // SKIP @bridge
+    public func onScrollGeometryChangeErased<T>(of transform: @escaping (ScrollGeometry) -> T, action: @escaping (_ oldValue: T, _ newValue: T) -> Void) -> any View {
+        #if SKIP
+        // Thread the handler down into the enclosing ScrollView, which owns the scroll state and drives it.
+        return environment(\._onScrollGeometryChange, ScrollGeometryChangeAction { oldGeometry, newGeometry in
+            let oldValue = transform(oldGeometry)
+            let newValue = transform(newGeometry)
+            if oldValue != newValue {
+                action(oldValue, newValue)
+            }
+        }, affectsEvaluate: false)
+        #else
+        return self
+        #endif
     }
 
     public func scrollPosition(id: Binding<(some Hashable)?>, anchor: UnitPoint? = nil) -> some View {
