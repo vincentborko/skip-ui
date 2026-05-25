@@ -38,6 +38,8 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.text.TextAutoSize
+import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.foundation.text.selection.DisableSelection
 import skip.foundation.LocalizedStringResource
 import skip.foundation.Bundle
 import skip.foundation.Locale
@@ -895,9 +897,30 @@ extension View {
         return self
     }
 
-    @available(*, unavailable)
-    public func textSelection(_ selectability: TextSelectability) -> some View {
+    public func textSelection(_ selectability: TextSelectability) -> any View {
+        #if SKIP
+        // SwiftUI's textSelection makes the text in the subtree user-selectable (long-press → copy/share).
+        // Compose's SelectionContainer enables exactly that for the content it wraps; DisableSelection
+        // carves out an opt-out region inside an enclosing SelectionContainer.
+        return ModifiedContent(content: self, modifier: RenderModifier { renderable, context in
+            if selectability == TextSelectability.enabled {
+                SelectionContainer {
+                    renderable.Render(context: context)
+                }
+            } else {
+                DisableSelection {
+                    renderable.Render(context: context)
+                }
+            }
+        })
+        #else
         return self
+        #endif
+    }
+
+    // SKIP @bridge
+    public func textSelection(bridgedSelectability: Int) -> any View {
+        return textSelection(bridgedSelectability == 1 ? TextSelectability.enabled : TextSelectability.disabled)
     }
 
     // SKIP @bridge
