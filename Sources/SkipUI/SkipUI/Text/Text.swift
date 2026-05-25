@@ -905,6 +905,12 @@ extension View {
         #endif
     }
 
+    // SKIP @bridge
+    public func bridgedTruncationMode(_ rawValue: Int) -> any View {
+        // The Fuse bridge can't carry the Swift enum across, so it sends the rawValue.
+        return self.truncationMode(Text.TruncationMode(rawValue: rawValue) ?? .tail)
+    }
+
     public func underline(_ isActive: Bool = true, pattern: Text.LineStyle.Pattern = .solid, color: Color? = nil) -> some View {
         #if SKIP
         return textEnvironment(for: self) { $0.isUnderline = isActive }
