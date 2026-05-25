@@ -162,6 +162,10 @@ public struct Text: View, Renderable, Equatable {
         // Trim the line height padding to mirror SwiftUI.Text layout. For now we only do this here on the Text component
         // rather than in Font to de-risk this aberration from Compose default text style behavior
         style = style.copy(lineHeightStyle: LineHeightStyle(alignment: LineHeightStyle.Alignment.Center, trim: LineHeightStyle.Trim.Both))
+        if textEnvironment.isMonospacedDigit == true {
+            // Tabular figures: request the OpenType "tnum" feature so digits share an advance width.
+            style = style.copy(fontFeatureSettings: "tnum")
+        }
         if let textBrush {
             style = style.copy(brush: textBrush)
         }
@@ -239,9 +243,8 @@ public struct Text: View, Renderable, Equatable {
         return Text(textView: textView, modifiedView: modifiedView.fontDesign(design))
     }
 
-    @available(*, unavailable)
     public func monospacedDigit() -> Text {
-        return self
+        return Text(textView: textView, modifiedView: modifiedView.monospacedDigit())
     }
 
     public func strikethrough(_ isActive: Bool = true, pattern: Text.LineStyle.Pattern = .solid, color: Color? = nil) -> Text {
@@ -619,6 +622,7 @@ struct TextEnvironment: Equatable {
     var fontWeight: Font.Weight?
     var fontDesign: Font.Design?
     var isItalic: Bool?
+    var isMonospacedDigit: Bool?
     var isUnderline: Bool?
     var isStrikethrough: Bool?
     var textCase: Text.Case?
@@ -779,9 +783,17 @@ extension View {
         #endif
     }
 
-    @available(*, unavailable)
     public func monospacedDigit() -> some View {
+        #if SKIP
+        return textEnvironment(for: self) { $0.isMonospacedDigit = true }
+        #else
         return self
+        #endif
+    }
+
+    // SKIP @bridge
+    public func bridgedMonospacedDigit() -> any View {
+        return self.monospacedDigit()
     }
 
     public func monospaced(_ isActive: Bool = true) -> some View {

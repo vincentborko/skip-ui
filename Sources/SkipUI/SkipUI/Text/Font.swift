@@ -297,9 +297,17 @@ public struct Font : Hashable {
         fatalError()
     }
 
-    @available(*, unavailable)
+    // SKIP @bridge
     public func monospacedDigit(_ isActive: Bool = true) -> Font {
+        #if SKIP
+        // Tabular figures map to the OpenType "tnum" feature in Compose.
+        guard isActive else { return self }
+        return Font(fontImpl: {
+            fontImpl().copy(fontFeatureSettings: "tnum")
+        })
+        #else
         fatalError()
+        #endif
     }
 
     public func weight(_ weight: Font.Weight) -> Font {
