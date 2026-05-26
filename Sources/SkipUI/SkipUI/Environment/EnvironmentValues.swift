@@ -834,6 +834,12 @@ extension EnvironmentValues {
         set { setBuiltinValue(key: "_onScrollGeometryChange", value: newValue, defaultValue: { nil }) }
     }
 
+    /// Set by `View.onScrollPhaseChange(_:)`; read and driven by the enclosing `ScrollView`.
+    var _onScrollPhaseChange: ScrollPhaseChangeAction? {
+        get { builtinValue(key: "_onScrollPhaseChange", defaultValue: { nil }) as! ScrollPhaseChangeAction? }
+        set { setBuiltinValue(key: "_onScrollPhaseChange", value: newValue, defaultValue: { nil }) }
+    }
+
     var _onSubmitState: OnSubmitState? {
         get { builtinValue(key: "_onSubmitState", defaultValue: { nil }) as! OnSubmitState? }
         set { setBuiltinValue(key: "_onSubmitState", value: newValue, defaultValue: { nil }) }

@@ -4,6 +4,7 @@
 #if SKIP
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.LocalOverscrollFactory
+import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -28,6 +29,8 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntSize
@@ -39,6 +42,19 @@ import struct CoreGraphics.CGPoint
 import struct CoreGraphics.CGRect
 import struct CoreGraphics.CGSize
 #endif
+
+/// The scrolling phase of a scroll view, reported by `onScrollPhaseChange(_:)`.
+///
+/// The raw values are the contract carried across the bridge to SkipSwiftUI's `ScrollPhase`,
+/// so they must stay in sync with that type's `init(bridgedValue:)` reconstruction
+/// (idle=0, tracking=1, interacting=2, decelerating=3, animating=4).
+public enum ScrollPhase : Int {
+    case idle = 0
+    case tracking = 1
+    case interacting = 2
+    case decelerating = 3
+    case animating = 4
+}
 
 // SKIP @bridge
 public struct ScrollView : View, Renderable {
@@ -191,6 +207,42 @@ public struct ScrollView : View, Renderable {
                     }
                 }
 
+                // onScrollPhaseChange: when a handler was threaded in via the environment, report ScrollPhase
+                // transitions. We track whether a pointer is pressed with a non-consuming pointerInput on the
+                // Initial pass (read-only — it never calls .consume(), so it doesn't interfere with the
+                // scrollable's own drag handling); combined with scrollState.isScrollInProgress this distinguishes
+                // interacting / tracking / decelerating / idle (see ScrollView.scrollPhase). Like the geometry
+                // handler we observe the derived phase off-composition via snapshotFlow and fire only on changes.
+                if let scrollPhaseAction = EnvironmentValues.shared._onScrollPhaseChange {
+                    let scrollPhaseIsPressed = remember { mutableStateOf(false) }
+                    containerModifier = containerModifier.pointerInput(true) {
+                        awaitEachGesture {
+                            // First down on the Initial pass (before the scrollable consumes it).
+                            awaitPointerEvent(pass: PointerEventPass.Initial)
+                            scrollPhaseIsPressed.value = true
+                            var pressed = true
+                            while pressed {
+                                let event = awaitPointerEvent(pass: PointerEventPass.Initial)
+                                pressed = event.changes.any({ $0.pressed })
+                            }
+                            scrollPhaseIsPressed.value = false
+                        }
+                    }
+                    let updatedScrollPhaseAction = rememberUpdatedState(scrollPhaseAction)
+                    LaunchedEffect(scrollState) {
+                        var previousPhase = ScrollPhase.idle
+                        snapshotFlow { () -> ScrollPhase in
+                            return ScrollView.scrollPhase(isPressed: scrollPhaseIsPressed.value, isScrollInProgress: scrollState.isScrollInProgress)
+                        }.collect { phase in
+                            if phase != previousPhase {
+                                let oldPhase = previousPhase
+                                previousPhase = phase
+                                updatedScrollPhaseAction.value.action(oldPhase.rawValue, phase.rawValue)
+                            }
+                        }
+                    }
+                }
+
                 Box(modifier: containerModifier) {
                     // Apply content margins as padding to the scrolling content only when this ScrollView is managing scroll
                     // (when a lazy container is the child, it manages its own scroll and will apply margins itself)
@@ -219,6 +271,7 @@ public struct ScrollView : View, Renderable {
                             $0.set_scrollViewAxes(axes)
                             // This ScrollView consumed the handler; don't let a nested ScrollView fire it too.
                             $0.set_onScrollGeometryChange(nil)
+                            $0.set_onScrollPhaseChange(nil)
                             return ComposeResult.ok
                         } in: {
                             PreferenceValues.shared.collectPreferences([builtinScrollAxisSetCollector]) {
@@ -249,6 +302,20 @@ public struct ScrollView : View, Renderable {
         let fraction = isVertical ? anchor.y : anchor.x
         let clamped = min(max(fraction, 0.0), 1.0)
         return Int((Double(maxValue) * clamped).rounded())
+    }
+
+    /// The current `ScrollPhase` derived from whether a pointer is pressed on the scroll view and
+    /// whether Compose reports a scroll in progress. This is the honest subset Android can observe:
+    /// finger-down + moving = `.interacting`, finger-down + still = `.tracking`, finger-up while still
+    /// moving (a fling) = `.decelerating`, otherwise `.idle`. SwiftUI's `.animating` (programmatic
+    /// scrolls) has no distinct Compose signal on this path and is therefore not reported.
+    /// Extracted as a pure function so the decision is unit-testable without a device.
+    public static func scrollPhase(isPressed: Bool, isScrollInProgress: Bool) -> ScrollPhase {
+        if isPressed {
+            return isScrollInProgress ? ScrollPhase.interacting : ScrollPhase.tracking
+        } else {
+            return isScrollInProgress ? ScrollPhase.decelerating : ScrollPhase.idle
+        }
     }
 }
 
@@ -310,6 +377,17 @@ public final class ScrollGeometryChangeAction {
     let action: (ScrollGeometry, ScrollGeometry) -> Void
 
     init(action: @escaping (ScrollGeometry, ScrollGeometry) -> Void) {
+        self.action = action
+    }
+}
+
+// Carries the phase-change handler down to the enclosing ScrollView, which drives it from its own
+// scroll state plus pointer tracking (the modifier itself has no scroll state). Old/new phases are
+// passed as raw Ints (the bridge contract); the bridge reconstructs SkipSwiftUI's ScrollPhase.
+public final class ScrollPhaseChangeAction {
+    let action: (Int, Int) -> Void
+
+    init(action: @escaping (Int, Int) -> Void) {
         self.action = action
     }
 }
@@ -668,6 +746,18 @@ extension View {
                 action(oldValue, newValue)
             }
         }, affectsEvaluate: false)
+        #else
+        return self
+        #endif
+    }
+
+    // The closure is declared unlabeled (mirroring onScrollVisibilityChange / onGeometryChangeErased) so
+    // the generated bridge takes it as a trailing closure. Phases cross the bridge as raw Ints.
+    // SKIP @bridge
+    public func onScrollPhaseChange(_ action: @escaping (Int, Int) -> Void) -> any View {
+        #if SKIP
+        // Thread the handler down into the enclosing ScrollView, which owns the scroll state and drives it.
+        return environment(\._onScrollPhaseChange, ScrollPhaseChangeAction(action: action), affectsEvaluate: false)
         #else
         return self
         #endif
