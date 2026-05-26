@@ -628,6 +628,12 @@ extension EnvironmentValues {
         set { setBuiltinValue(key: "_contentPadding", value: newValue, defaultValue: { EdgeInsets() }) }
     }
 
+    /// The active `contentTransition`, read by `Text` to animate changes to its content.
+    var _contentTransition: ContentTransition {
+        get { builtinValue(key: "_contentTransition", defaultValue: { ContentTransition.identity }) as! ContentTransition }
+        set { setBuiltinValue(key: "_contentTransition", value: newValue, defaultValue: { ContentTransition.identity }) }
+    }
+
     var _flexibleHeight: (@Composable (Float?, Float?, Float?) -> Modifier)? {
         get { builtinValue(key: "_flexibleHeight", defaultValue: { nil }) as! (@Composable (Float?, Float?, Float?) -> Modifier)? }
         set { setBuiltinValue(key: "_flexibleHeight", value: newValue, defaultValue: { nil }) }

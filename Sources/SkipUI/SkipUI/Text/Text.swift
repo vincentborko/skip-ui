@@ -3,6 +3,16 @@
 #if !SKIP_BRIDGE
 import Foundation
 #if SKIP
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.snap
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
@@ -520,8 +530,30 @@ struct _Text: View, Renderable, Equatable {
         if let updateOptions = EnvironmentValues.shared._material3Text {
             options = updateOptions(options)
         }
+        // `contentTransition` animates changes to plain (non-markdown) text content. We map the SwiftUI cases
+        // onto Compose's `AnimatedContent`, keyed on the rendered string: `.numericText` rolls the new value in
+        // vertically (the digit-counter feel), while `.opacity`/`.interpolate` crossfade. We only animate when a
+        // SwiftUI animation is active, mirroring SwiftUI where the content change must occur inside `withAnimation`.
+        let contentTransition = EnvironmentValues.shared._contentTransition
+        let animatesContent = options.annotatedText == nil && contentTransition.rawValue != ContentTransition.identity.rawValue
         if let annotatedText = options.annotatedText, let onTextLayout = options.onTextLayout {
             androidx.compose.material3.Text(text: annotatedText, modifier: options.modifier, color: options.color, autoSize: options.autoSize, fontSize: options.fontSize, fontStyle: options.fontStyle, fontWeight: options.fontWeight, fontFamily: options.fontFamily, letterSpacing: options.letterSpacing, textDecoration: options.textDecoration, textAlign: options.textAlign, lineHeight: options.lineHeight, overflow: options.overflow, softWrap: options.softWrap, maxLines: options.maxLines, minLines: options.minLines, onTextLayout: onTextLayout, style: options.style)
+        } else if animatesContent {
+            let isNumeric = contentTransition.rawValue == ContentTransition.numericText().rawValue
+            let animation = Animation.current(isAnimating: false)
+            let target = options.text ?? ""
+            AnimatedContent(targetState: target, modifier: options.modifier, transitionSpec: {
+                if animation == nil {
+                    // No active SwiftUI animation: swap instantly, with no size animation either.
+                    EnterTransition.None.togetherWith(ExitTransition.None).using(SizeTransform(clip: false) { _, _ in snap() })
+                } else if isNumeric {
+                    slideInVertically(initialOffsetY: { $0 }).plus(fadeIn()).togetherWith(slideOutVertically(targetOffsetY: { -$0 }).plus(fadeOut()))
+                } else {
+                    fadeIn().togetherWith(fadeOut())
+                }
+            }, content: { state in
+                androidx.compose.material3.Text(text: state, modifier: Modifier, color: options.color, autoSize: options.autoSize, fontSize: options.fontSize, fontStyle: options.fontStyle, fontWeight: options.fontWeight, fontFamily: options.fontFamily, letterSpacing: options.letterSpacing, textDecoration: options.textDecoration, textAlign: options.textAlign, lineHeight: options.lineHeight, overflow: options.overflow, softWrap: options.softWrap, maxLines: options.maxLines, minLines: options.minLines, onTextLayout: options.onTextLayout, style: options.style)
+            }, label: "ContentTransition")
         } else {
             androidx.compose.material3.Text(text: options.text ?? "", modifier: options.modifier, color: options.color, autoSize: options.autoSize, fontSize: options.fontSize, fontStyle: options.fontStyle, fontWeight: options.fontWeight, fontFamily: options.fontFamily, letterSpacing: options.letterSpacing, textDecoration: options.textDecoration, textAlign: options.textAlign, lineHeight: options.lineHeight, overflow: options.overflow, softWrap: options.softWrap, maxLines: options.maxLines, minLines: options.minLines, onTextLayout: options.onTextLayout, style: options.style)
         }

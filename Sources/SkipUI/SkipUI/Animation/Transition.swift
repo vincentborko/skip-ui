@@ -456,9 +456,18 @@ extension View {
         #endif
     }
 
-    @available(*, unavailable)
-    public func contentTransition(_ transition: Any /* ContentTransition */) -> any View {
-        fatalError()
+    public func contentTransition(_ transition: ContentTransition) -> any View {
+        #if SKIP
+        // Store in the environment; `Text` reads it to animate its content changes (see `_Text.Render`).
+        return environment(\._contentTransition, transition, affectsEvaluate: false)
+        #else
+        return self
+        #endif
+    }
+
+    // SKIP @bridge
+    public func contentTransition(bridgedTransition: Int) -> any View {
+        return contentTransition(ContentTransition(rawValue: bridgedTransition))
     }
 }
 
