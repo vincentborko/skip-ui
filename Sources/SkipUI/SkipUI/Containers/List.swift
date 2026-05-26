@@ -3,9 +3,13 @@
 #if !SKIP_BRIDGE
 import Foundation
 #if SKIP
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -45,6 +49,7 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.graphics.Path.Companion.combine
 import androidx.compose.ui.graphics.PathOperation
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.zIndex
 import androidx.compose.ui.unit.Density
@@ -432,6 +437,68 @@ public final class List : View, Renderable {
         }
     }
 
+    /// Wrap a row's content in a horizontal swipe-to-reveal container. The action views sit behind the
+    /// row pinned to their edge; the row slides (carrying an opaque `restingColor` background) to reveal
+    /// them and snaps to either fully-open or closed on release. Tapping a revealed action fires its own
+    /// closure (the action is the real composed view). We can't auto-trigger the first action on a full
+    /// swipe the way SwiftUI does — the bridged content is opaque to us — so `allowsFullSwipe` resolves to
+    /// a full open-reveal rather than an automatic invocation.
+    @Composable static func RenderSwipeActions(_ swipeActionsModifier: SwipeActionsModifier, context: ComposeContext, restingColor: androidx.compose.ui.graphics.Color, content: @Composable (Modifier) -> Void) {
+        let coroutineScope = rememberCoroutineScope()
+        let offsetX = remember { Animatable(Float(0.0)) }
+        let leadingWidthPx = remember { mutableStateOf(0) }
+        let trailingWidthPx = remember { mutableStateOf(0) }
+        let leadingActions = swipeActionsModifier.leadingActions
+        let trailingActions = swipeActionsModifier.trailingActions
+
+        let dragState = rememberDraggableState { delta in
+            coroutineScope.launch {
+                let lead = Float(leadingWidthPx.value)
+                let trail = Float(trailingWidthPx.value)
+                var target = offsetX.value + delta
+                if target > lead {
+                    target = lead
+                }
+                if target < -trail {
+                    target = -trail
+                }
+                offsetX.snapTo(target)
+            }
+        }
+
+        Box(modifier: Modifier.fillMaxWidth()) {
+            if let leadingActions {
+                Row(modifier: Modifier.align(androidx.compose.ui.Alignment.CenterStart).onGloballyPositioned { leadingWidthPx.value = $0.size.width }, verticalAlignment: androidx.compose.ui.Alignment.CenterVertically) {
+                    leadingActions.Compose(context: context)
+                }
+            }
+            if let trailingActions {
+                Row(modifier: Modifier.align(androidx.compose.ui.Alignment.CenterEnd).onGloballyPositioned { trailingWidthPx.value = $0.size.width }, verticalAlignment: androidx.compose.ui.Alignment.CenterVertically) {
+                    trailingActions.Compose(context: context)
+                }
+            }
+            let offsetDp = with(LocalDensity.current) { offsetX.value.toDp() }
+            let swipeModifier = Modifier
+                .fillMaxWidth()
+                .offset(x: offsetDp, y: 0.dp)
+                .background(restingColor)
+                .draggable(state: dragState, orientation: Orientation.Horizontal, onDragStopped: { velocity in
+                    let lead = Float(leadingWidthPx.value)
+                    let trail = Float(trailingWidthPx.value)
+                    var target = Float(0.0)
+                    if offsetX.value <= -trail / Float(2.0) && trail > Float(0.0) {
+                        target = -trail
+                    } else if offsetX.value >= lead / Float(2.0) && lead > Float(0.0) {
+                        target = lead
+                    }
+                    coroutineScope.launch {
+                        offsetX.animateTo(target)
+                    }
+                })
+            content(swipeModifier)
+        }
+    }
+
     @Composable private func RenderItem(content: Renderable, level: Int, context: ComposeContext, modifier: Modifier = Modifier, styling: ListStyling, isItem: Bool = true) {
         guard !content.isSwiftUIEmptyView else {
             return
@@ -439,10 +506,13 @@ public final class List : View, Renderable {
 
         let itemRenderable = itemTransformer?(content) ?? content
         let listItemModifier = ListItemModifier.combined(for: itemRenderable)
+        let swipeActionsModifier = SwipeActionsModifier.combined(for: itemRenderable)
         var itemModifier: Modifier = Modifier
         if listItemModifier?.background == nil {
             itemModifier = itemModifier.background(BackgroundColor(styling: styling.withStyle(ListStyle.plain), isItem: isItem))
         }
+        // Resting background painted under the sliding row so the revealed actions stay hidden until swiped.
+        let swipeRestingColor = BackgroundColor(styling: styling.withStyle(ListStyle.plain), isItem: isItem)
 
         // The given modifiers include elevation shadow for dragging, etc that need to go before the others
         let containerContext = context.content(modifier: modifier.then(itemModifier).then(context.modifier))
@@ -455,7 +525,13 @@ public final class List : View, Renderable {
                     $0.set_placement(placement.union(ViewPlacement.listItem))
                     return ComposeResult.ok
                 } in: {
-                    Self.RenderItemContent(item: itemRenderable, context: contentContext, modifier: contentModifier)
+                    if swipeActionsModifier.hasActions {
+                        Self.RenderSwipeActions(swipeActionsModifier, context: contentContext, restingColor: swipeRestingColor) { swipeModifier in
+                            Self.RenderItemContent(item: itemRenderable, context: contentContext, modifier: swipeModifier.then(contentModifier))
+                        }
+                    } else {
+                        Self.RenderItemContent(item: itemRenderable, context: contentContext, modifier: contentModifier)
+                    }
                 }
                 if listItemModifier?.separator != Visibility.hidden {
                     Self.RenderSeparator(level: level)
@@ -891,9 +967,25 @@ extension View {
         return self
     }
 
-    @available(*, unavailable)
-    public func swipeActions(edge: HorizontalEdge = .trailing, allowsFullSwipe: Bool = true, @ViewBuilder content: () -> any View) -> some View {
+    public func swipeActions(edge: HorizontalEdge = .trailing, allowsFullSwipe: Bool = true, @ViewBuilder content: () -> any View) -> any View {
+        #if SKIP
+        // Attach the action buttons to the row via a collected modifier; the List's row renderer
+        // wraps the row in a swipe-to-reveal container (see RenderSwipeActions). One modifier per
+        // edge — two calls (.leading + .trailing) merge in SwipeActionsModifier.combined.
+        let actions = content()
+        if edge == .leading {
+            return ModifiedContent(content: self, modifier: SwipeActionsModifier(leadingActions: actions, allowsFullSwipeLeading: allowsFullSwipe))
+        } else {
+            return ModifiedContent(content: self, modifier: SwipeActionsModifier(trailingActions: actions, allowsFullSwipeTrailing: allowsFullSwipe))
+        }
+        #else
         return self
+        #endif
+    }
+
+    // SKIP @bridge
+    public func swipeActions(bridgedEdge: Int, allowsFullSwipe: Bool, bridgedContent: any View) -> any View {
+        return swipeActions(edge: HorizontalEdge(rawValue: bridgedEdge) ?? .trailing, allowsFullSwipe: allowsFullSwipe) { bridgedContent }
     }
 }
 
@@ -923,6 +1015,48 @@ final class ListItemModifier: RenderModifier {
             return nil
         }
         return ListItemModifier(background: background, separator: separator, insets: insets)
+    }
+}
+
+/// Carries `swipeActions` content for a List row. One instance per edge; `combined` merges the
+/// leading and trailing modifiers that accumulate when both edges are set on the same row.
+final class SwipeActionsModifier: RenderModifier {
+    let leadingActions: View?
+    let trailingActions: View?
+    let allowsFullSwipeLeading: Bool
+    let allowsFullSwipeTrailing: Bool
+
+    init(leadingActions: View? = nil, trailingActions: View? = nil, allowsFullSwipeLeading: Bool = true, allowsFullSwipeTrailing: Bool = true) {
+        self.leadingActions = leadingActions
+        self.trailingActions = trailingActions
+        self.allowsFullSwipeLeading = allowsFullSwipeLeading
+        self.allowsFullSwipeTrailing = allowsFullSwipeTrailing
+        super.init()
+    }
+
+    var hasActions: Bool {
+        return leadingActions != nil || trailingActions != nil
+    }
+
+    static func combined(for renderable: Renderable) -> SwipeActionsModifier {
+        var leadingActions: View? = nil
+        var trailingActions: View? = nil
+        var allowsFullSwipeLeading = true
+        var allowsFullSwipeTrailing = true
+        renderable.forEachModifier {
+            if let swipeModifier = $0 as? SwipeActionsModifier {
+                if leadingActions == nil, let leading = swipeModifier.leadingActions {
+                    leadingActions = leading
+                    allowsFullSwipeLeading = swipeModifier.allowsFullSwipeLeading
+                }
+                if trailingActions == nil, let trailing = swipeModifier.trailingActions {
+                    trailingActions = trailing
+                    allowsFullSwipeTrailing = swipeModifier.allowsFullSwipeTrailing
+                }
+            }
+            return nil
+        }
+        return SwipeActionsModifier(leadingActions: leadingActions, trailingActions: trailingActions, allowsFullSwipeLeading: allowsFullSwipeLeading, allowsFullSwipeTrailing: allowsFullSwipeTrailing)
     }
 }
 
