@@ -293,6 +293,8 @@ extension EnvironmentValues {
             return EnvironmentSupport(builtinValue: backgroundStyle)
         case "colorScheme":
             return EnvironmentSupport(builtinValue: colorScheme.rawValue)
+        case "defaultMinListRowHeight":
+            return EnvironmentSupport(builtinValue: defaultMinListRowHeight)
         case "dismiss":
             return EnvironmentSupport(builtinValue: dismiss)
         case "font":
@@ -337,6 +339,9 @@ extension EnvironmentValues {
             return true
         case "colorScheme":
             return false // Doesn't support setting outside of `.colorScheme(_:)` func
+        case "defaultMinListRowHeight":
+            setdefaultMinListRowHeight(value?.builtinValue as? CGFloat ?? 32.0)
+            return true
         case "dismiss":
             setdismiss(value?.builtinValue as? DismissAction ?? DismissAction.default)
             return true
@@ -444,7 +449,15 @@ extension EnvironmentValues {
         get { builtinValue(key: "lineLimit", defaultValue: { nil }) as! Int? }
         set { setBuiltinValue(key: "lineLimit", value: newValue, defaultValue: { nil }) }
     }
-    
+
+    /// The minimum height a `List` row is laid out at, read by `List` when sizing its rows.
+    /// Default `32.0` matches the long-standing built-in `List.minimumItemHeight`, so an app
+    /// that never sets `\.defaultMinListRowHeight` (via `.environment(_:_:)`) sees no change.
+    public var defaultMinListRowHeight: CGFloat {
+        get { builtinValue(key: "defaultMinListRowHeight", defaultValue: { 32.0 }) as! CGFloat }
+        set { setBuiltinValue(key: "defaultMinListRowHeight", value: newValue, defaultValue: { 32.0 }) }
+    }
+
     public var locale: Locale {
         get { Locale(LocalConfiguration.current.locales[0]) }
         set {

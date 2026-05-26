@@ -365,14 +365,17 @@ public final class List : View, Renderable {
     private static let verticalItemInset = 8.0
     private static let levelInset = 24.0
 
-    static func contentModifier(level: Int, insets: EdgeInsets? = nil) -> Modifier {
+    // `minRowHeight` is the `\.defaultMinListRowHeight` environment value, read by the caller in a
+    // @Composable context and threaded in here. Defaults to the built-in `minimumItemHeight` floor
+    // for callers that don't track the environment value (e.g. `Table` rows).
+    static func contentModifier(level: Int, insets: EdgeInsets? = nil, minRowHeight: CGFloat = minimumItemHeight) -> Modifier {
         // `.listRowInsets` replaces the row's default content margins. We keep the hierarchical
         // `level * levelInset` indentation in the leading edge so outline/nested rows still indent
         // (a no-op at the common top level), but otherwise use the caller-supplied edges verbatim.
         if let insets {
-            return Modifier.padding(start: (insets.leading + level * levelInset).dp, end: insets.trailing.dp, top: insets.top.dp, bottom: insets.bottom.dp).fillMaxWidth().requiredHeightIn(min: minimumItemHeight.dp)
+            return Modifier.padding(start: (insets.leading + level * levelInset).dp, end: insets.trailing.dp, top: insets.top.dp, bottom: insets.bottom.dp).fillMaxWidth().requiredHeightIn(min: minRowHeight.dp)
         }
-        return Modifier.padding(start: (horizontalItemInset + level * levelInset).dp, end: horizontalItemInset.dp, top: verticalItemInset.dp, bottom: verticalItemInset.dp).fillMaxWidth().requiredHeightIn(min: minimumItemHeight.dp)
+        return Modifier.padding(start: (horizontalItemInset + level * levelInset).dp, end: horizontalItemInset.dp, top: verticalItemInset.dp, bottom: verticalItemInset.dp).fillMaxWidth().requiredHeightIn(min: minRowHeight.dp)
     }
 
     @Composable static func RenderSeparator(level: Int) {
@@ -517,7 +520,8 @@ public final class List : View, Renderable {
         // The given modifiers include elevation shadow for dragging, etc that need to go before the others
         let containerContext = context.content(modifier: modifier.then(itemModifier).then(context.modifier))
         let contentContext = context.content()
-        let contentModifier = Self.contentModifier(level: level, insets: listItemModifier?.insets)
+        let minRowHeight = EnvironmentValues.shared.defaultMinListRowHeight
+        let contentModifier = Self.contentModifier(level: level, insets: listItemModifier?.insets, minRowHeight: minRowHeight)
         let renderContainer: @Composable (ComposeContext) -> Void = { context in
             Column(modifier: context.modifier) {
                 let placement = EnvironmentValues.shared._placement
