@@ -106,7 +106,24 @@ private let AlertDialogMaxWidth: Dp = 560.dp
         let handleHeightPx = with(LocalDensity.current) { handleHeight.toPx() }
         let handlePadding = isFullScreen ? 0.dp : 10.dp
         let handlePaddingPx = with(LocalDensity.current) { handlePadding.toPx() }
-        let sheetMaxWidth = isFullScreen ? Dp.Unspecified : BottomSheetDefaults.SheetMaxWidth
+        // `presentationSizing(_:)` lets the presented content request a wider/narrower sheet. A Compose
+        // ModalBottomSheet is always a bottom sheet, so the only sizing lever it exposes is `sheetMaxWidth`;
+        // we map .page → fill the available width, .form/.fitted → a narrower form-like cap, .automatic →
+        // the Material default. Like SwiftUI's own compact-width behavior this is only visible when the
+        // screen is wider than the cap (landscape / tablet / large phone) — in narrow portrait every option
+        // resolves to full width. Read off the pre-evaluated content (same approach as `backDismissDisabled`)
+        // because `sheetMaxWidth` must be known before ModalBottomSheet is constructed.
+        let sizingMode = presentationSizingMode(on: contentRenderables)
+        let sheetMaxWidth: Dp
+        if isFullScreen {
+            sheetMaxWidth = Dp.Unspecified
+        } else if sizingMode == PresentationSizingModifier.page {
+            sheetMaxWidth = Dp.Unspecified
+        } else if sizingMode == PresentationSizingModifier.form || sizingMode == PresentationSizingModifier.fitted {
+            sheetMaxWidth = 360.dp
+        } else {
+            sheetMaxWidth = BottomSheetDefaults.SheetMaxWidth
+        }
         let shape = GenericShape { size, _ in
             let y = topInsetPx - handleHeightPx - handlePaddingPx
             addRect(Rect(offset = Offset(x: Float(0.0), y: y), size: Size(width: size.width, height: size.height - y)))
@@ -253,6 +270,19 @@ func isBackDismissDisabled(on renderables: kotlin.collections.List<Renderable>) 
         }
     }
     return false
+}
+
+// Scan the pre-evaluated sheet content for a `presentationSizing(_:)` request, returning the bridged
+// sizing discriminator (see `PresentationSizingModifier`) or `.automatic` when none is set. Mirrors
+// `isBackDismissDisabled`: read directly off the content because the result feeds `sheetMaxWidth`, which
+// ModalBottomSheet needs before the content's preferences would be collected.
+func presentationSizingMode(on renderables: kotlin.collections.List<Renderable>) -> Int {
+    for renderable in renderables {
+        if let mode = renderable.forEachModifier(perform: { ($0 as? PresentationSizingModifier)?.mode }) {
+            return mode
+        }
+    }
+    return PresentationSizingModifier.automatic
 }
 
 final class DisableScrollToDismissConnection : NestedScrollConnection {
@@ -1225,6 +1255,16 @@ extension View {
         return presentationDragIndicator(Visibility(rawValue: bridgedVisibility) ?? Visibility.automatic)
     }
 
+    // SKIP @bridge
+    public func presentationSizing(bridgedSizing: Int) -> any View {
+        #if SKIP
+        // Tag the content with the requested sizing; `SheetPresentation` reads it to pick `sheetMaxWidth`.
+        return ModifiedContent(content: self, modifier: PresentationSizingModifier(mode: bridgedSizing))
+        #else
+        return self
+        #endif
+    }
+
     @available(*, unavailable)
     public func presentationBackgroundInteraction(_ interaction: PresentationBackgroundInteraction) -> some View {
         return self
@@ -1332,6 +1372,24 @@ final class BackDismissDisabledModifier: RenderModifier {
 
     init(disabled: Bool) {
         self.disabled = disabled
+        super.init()
+    }
+}
+
+/// Carries a `presentationSizing(_:)` request to `SheetPresentation`. `mode` is the bridged discriminator
+/// sent from skip-fuse-ui; `SheetPresentation` maps it onto `sheetMaxWidth` (Compose's only bottom-sheet
+/// sizing lever). Like `BackDismissDisabledModifier`, this is a marker `RenderModifier` that renders its
+/// content unchanged and is read by scanning the content's modifier chain.
+final class PresentationSizingModifier: RenderModifier {
+    static let automatic = 0
+    static let page = 1
+    static let form = 2
+    static let fitted = 3
+
+    let mode: Int
+
+    init(mode: Int) {
+        self.mode = mode
         super.init()
     }
 }
