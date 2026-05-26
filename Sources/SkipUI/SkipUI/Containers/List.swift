@@ -360,7 +360,13 @@ public final class List : View, Renderable {
     private static let verticalItemInset = 8.0
     private static let levelInset = 24.0
 
-    static func contentModifier(level: Int) -> Modifier {
+    static func contentModifier(level: Int, insets: EdgeInsets? = nil) -> Modifier {
+        // `.listRowInsets` replaces the row's default content margins. We keep the hierarchical
+        // `level * levelInset` indentation in the leading edge so outline/nested rows still indent
+        // (a no-op at the common top level), but otherwise use the caller-supplied edges verbatim.
+        if let insets {
+            return Modifier.padding(start: (insets.leading + level * levelInset).dp, end: insets.trailing.dp, top: insets.top.dp, bottom: insets.bottom.dp).fillMaxWidth().requiredHeightIn(min: minimumItemHeight.dp)
+        }
         return Modifier.padding(start: (horizontalItemInset + level * levelInset).dp, end: horizontalItemInset.dp, top: verticalItemInset.dp, bottom: verticalItemInset.dp).fillMaxWidth().requiredHeightIn(min: minimumItemHeight.dp)
     }
 
@@ -441,7 +447,7 @@ public final class List : View, Renderable {
         // The given modifiers include elevation shadow for dragging, etc that need to go before the others
         let containerContext = context.content(modifier: modifier.then(itemModifier).then(context.modifier))
         let contentContext = context.content()
-        let contentModifier = Self.contentModifier(level: level)
+        let contentModifier = Self.contentModifier(level: level, insets: listItemModifier?.insets)
         let renderContainer: @Composable (ComposeContext) -> Void = { context in
             Column(modifier: context.modifier) {
                 let placement = EnvironmentValues.shared._placement
@@ -853,9 +859,21 @@ extension View {
         return self
     }
 
-    @available(*, unavailable)
-    public func listRowInsets(_ insets: EdgeInsets?) -> some View {
+    public func listRowInsets(_ insets: EdgeInsets?) -> any View {
+        #if SKIP
+        // A nil `insets` resets to the list's default row margins — i.e. no item modifier.
+        guard let insets else {
+            return self
+        }
+        return ModifiedContent(content: self, modifier: ListItemModifier(insets: insets))
+        #else
         return self
+        #endif
+    }
+
+    // SKIP @bridge
+    public func listRowInsets(bridgedTop: CGFloat, bridgedLeading: CGFloat, bridgedBottom: CGFloat, bridgedTrailing: CGFloat) -> any View {
+        return listRowInsets(EdgeInsets(top: bridgedTop, leading: bridgedLeading, bottom: bridgedBottom, trailing: bridgedTrailing))
     }
 
     @available(*, unavailable)
@@ -883,24 +901,28 @@ extension View {
 final class ListItemModifier: RenderModifier {
     let background: View?
     let separator: Visibility?
+    let insets: EdgeInsets?
 
-    init(background: View? = nil, separator: Visibility? = nil) {
+    init(background: View? = nil, separator: Visibility? = nil, insets: EdgeInsets? = nil) {
         self.background = background
         self.separator = separator
+        self.insets = insets
         super.init()
     }
 
     static func combined(for renderable: Renderable) -> ListItemModifier {
         var background: View? = nil
         var separator: Visibility? = nil
+        var insets: EdgeInsets? = nil
         renderable.forEachModifier {
             if let listItemModifier = $0 as? ListItemModifier {
                 background = background ?? listItemModifier.background
                 separator = separator ?? listItemModifier.separator
+                insets = insets ?? listItemModifier.insets
             }
             return nil
         }
-        return ListItemModifier(background: background, separator: separator)
+        return ListItemModifier(background: background, separator: separator, insets: insets)
     }
 }
 
