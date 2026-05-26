@@ -634,6 +634,13 @@ extension EnvironmentValues {
         set { setBuiltinValue(key: "_contentTransition", value: newValue, defaultValue: { ContentTransition.identity }) }
     }
 
+    /// The current `controlSize`, read by controls (e.g. `Button`) to scale their padding/label.
+    /// Scoped to controls — plain `Text` does not consult it.
+    var _controlSize: ControlSize {
+        get { builtinValue(key: "_controlSize", defaultValue: { ControlSize.regular }) as! ControlSize }
+        set { setBuiltinValue(key: "_controlSize", value: newValue, defaultValue: { ControlSize.regular }) }
+    }
+
     var _flexibleHeight: (@Composable (Float?, Float?, Float?) -> Modifier)? {
         get { builtinValue(key: "_flexibleHeight", defaultValue: { nil }) as! (@Composable (Float?, Float?, Float?) -> Modifier)? }
         set { setBuiltinValue(key: "_flexibleHeight", value: newValue, defaultValue: { nil }) }

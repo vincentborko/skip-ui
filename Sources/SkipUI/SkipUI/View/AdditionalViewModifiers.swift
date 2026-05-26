@@ -410,9 +410,19 @@ extension View {
         #endif
     }
 
-    @available(*, unavailable)
-    public func controlSize(_ controlSize: ControlSize) -> some View {
+    public func controlSize(_ controlSize: ControlSize) -> any View {
+        #if SKIP
+        // Stored in the environment; controls (e.g. `Button`) read `_controlSize` to scale their
+        // content padding and label font. Scoped to controls — plain `Text` is unaffected.
+        return environment(\._controlSize, controlSize, affectsEvaluate: false)
+        #else
         return self
+        #endif
+    }
+
+    // SKIP @bridge
+    public func controlSize(bridgedControlSize: Int) -> any View {
+        return controlSize(ControlSize(rawValue: bridgedControlSize) ?? ControlSize.regular)
     }
 
     @available(*, unavailable)

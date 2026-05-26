@@ -20,7 +20,10 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.LocalRippleConfiguration
 import androidx.compose.material3.RippleConfiguration
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 #elseif canImport(CoreGraphics)
 import struct CoreGraphics.CGFloat
@@ -129,10 +132,39 @@ public struct Button : View, Renderable {
         }
     }
 
+    /// Content padding for a button at the given control size, or nil to keep the Material default
+    /// (used for `.regular`, so the common case is byte-for-byte unchanged). Larger sizes get roomier
+    /// padding; smaller sizes tighter.
+    static func buttonContentPadding(for controlSize: ControlSize) -> PaddingValues? {
+        switch controlSize {
+        case .mini: return PaddingValues(horizontal: 8.dp, vertical: 2.dp)
+        case .small: return PaddingValues(horizontal: 12.dp, vertical: 4.dp)
+        case .regular: return nil
+        case .large: return PaddingValues(horizontal: 24.dp, vertical: 12.dp)
+        case .extraLarge: return PaddingValues(horizontal: 32.dp, vertical: 16.dp)
+        }
+    }
+
+    /// Compose a button's label, scaling its `.sp` text by the control size's font multiplier.
+    /// `.regular` (= 1.0) composes the label unchanged so default rendering is preserved exactly.
+    /// The `Density.fontScale` override is scoped to the label, so only the button's text rescales.
+    @Composable static func ComposeButtonLabel(_ label: View, controlSize: ControlSize, context: ComposeContext) {
+        let scale = controlSize.labelFontScale
+        if scale == Float(1.0) {
+            label.Compose(context: context)
+        } else {
+            let density = LocalDensity.current
+            let newScale = density.fontScale * scale
+            // SKIP INSERT: val provided = LocalDensity provides Density(density.density, newScale)
+            CompositionLocalProvider(provided) { label.Compose(context: context) }
+        }
+    }
+
     /// Render a button in the current style.
     @Composable static func RenderButton(label: View, context: ComposeContext, role: ButtonRole? = nil, isEnabled: Bool = EnvironmentValues.shared.isEnabled, action: () -> Void) {
         let buttonStyle = EnvironmentValues.shared._buttonStyle
         let isHitTestingEnabled = EnvironmentValues.shared._isHitTestingEnabled
+        let controlSize = EnvironmentValues.shared._controlSize
         ComposeContainer(modifier: context.modifier) { modifier in
             switch buttonStyle {
             case .bordered:
@@ -145,6 +177,9 @@ public struct Button : View, Renderable {
                     colors = ButtonDefaults.filledTonalButtonColors()
                 }
                 var options = Material3ButtonOptions(onClick: action, modifier: modifier, enabled: isEnabled && isHitTestingEnabled, shape: ButtonDefaults.filledTonalShape, colors: colors, elevation: ButtonDefaults.filledTonalButtonElevation())
+                if let controlPadding = Self.buttonContentPadding(for: controlSize) {
+                    options.contentPadding = controlPadding
+                }
                 if let updateOptions = EnvironmentValues.shared._material3Button {
                     options = updateOptions(options)
                 }
@@ -160,7 +195,7 @@ public struct Button : View, Renderable {
                     return ComposeResult.ok
                 } in: {
                     FilledTonalButton(onClick: options.onClick, modifier: options.modifier, enabled: options.enabled, shape: options.shape, colors: options.colors, elevation: options.elevation, border: options.border, contentPadding: options.contentPadding, interactionSource: options.interactionSource) {
-                        label.Compose(context: contentContext)
+                        Self.ComposeButtonLabel(label, controlSize: controlSize, context: contentContext)
                     }
                 }
             case .borderedProminent:
@@ -183,6 +218,9 @@ public struct Button : View, Renderable {
                     colors = ButtonDefaults.buttonColors()
                 }
                 var options = Material3ButtonOptions(onClick: action, modifier: modifier, enabled: isEnabled && isHitTestingEnabled, shape: ButtonDefaults.shape, colors: colors, elevation: ButtonDefaults.buttonElevation())
+                if let controlPadding = Self.buttonContentPadding(for: controlSize) {
+                    options.contentPadding = controlPadding
+                }
                 if let updateOptions = EnvironmentValues.shared._material3Button {
                     options = updateOptions(options)
                 }
@@ -193,7 +231,7 @@ public struct Button : View, Renderable {
                     return ComposeResult.ok
                 } in: {
                     androidx.compose.material3.Button(onClick: options.onClick, modifier: options.modifier, enabled: options.enabled, shape: options.shape, colors: options.colors, elevation: options.elevation, border: options.border, contentPadding: options.contentPadding, interactionSource: options.interactionSource) {
-                        label.Compose(context: contentContext)
+                        Self.ComposeButtonLabel(label, controlSize: controlSize, context: contentContext)
                     }
                 }
             case .plain:
@@ -228,12 +266,13 @@ public struct Button : View, Renderable {
             modifier = modifier.clickable(onClick: action, enabled: isEnabled)
         }
         let contentContext = context.content(modifier: modifier)
+        let controlSize = EnvironmentValues.shared._controlSize
 
         EnvironmentValues.shared.setValues {
             $0.set_foregroundStyle(foregroundStyle)
             return ComposeResult.ok
         } in: {
-            label.Compose(context: contentContext)
+            ComposeButtonLabel(label, controlSize: controlSize, context: contentContext)
         }
     }
 
@@ -259,7 +298,11 @@ public struct Button : View, Renderable {
         let enabledContentColor = baseForegroundStyle.asColor(opacity: 1.0, animationContext: nil) ?? MaterialTheme.colorScheme.primary
         let disabledContentColor = baseForegroundStyle.asColor(opacity: Double(ContentAlpha.disabled), animationContext: nil) ?? enabledContentColor.copy(alpha: ContentAlpha.disabled)
         let colors = ButtonDefaults.textButtonColors(contentColor: enabledContentColor, disabledContentColor: disabledContentColor)
+        let controlSize = EnvironmentValues.shared._controlSize
         var options = Material3ButtonOptions(onClick: action ?? {}, modifier: context.modifier, enabled: isEnabled && hasAction, shape: ButtonDefaults.textShape, colors: colors, elevation: nil, border: nil, contentPadding: ButtonDefaults.TextButtonContentPadding, interactionSource: nil)
+        if let controlPadding = Self.buttonContentPadding(for: controlSize) {
+            options.contentPadding = controlPadding
+        }
         if let updateOptions = EnvironmentValues.shared._material3Button {
             options = updateOptions(options)
         }
@@ -270,7 +313,7 @@ public struct Button : View, Renderable {
             return ComposeResult.ok
         } in: {
             TextButton(onClick: options.onClick, modifier: options.modifier, enabled: options.enabled, shape: options.shape, colors: options.colors, elevation: options.elevation, border: options.border, contentPadding: options.contentPadding, interactionSource: options.interactionSource) {
-                label.Compose(context: contentContext)
+                ComposeButtonLabel(label, controlSize: controlSize, context: contentContext)
             }
         }
     }
