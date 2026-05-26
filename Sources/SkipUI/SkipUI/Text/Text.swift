@@ -677,15 +677,7 @@ extension View {
         return fontWeight(isActive ? Font.Weight.bold : nil)
     }
 
-    @available(*, unavailable)
-    public func dynamicTypeSize(_ size: DynamicTypeSize) -> some View {
-        return self
-    }
-
-    @available(*, unavailable)
-    public func dynamicTypeSize(_ range: Range<DynamicTypeSize>) -> some View {
-        return self
-    }
+    // `dynamicTypeSize(_:)` is implemented in System/DynamicTypeSize.swift.
 
     // SKIP @bridge
     public func font(_ font: Font?) -> any View {
