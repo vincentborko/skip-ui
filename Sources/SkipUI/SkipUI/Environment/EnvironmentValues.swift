@@ -889,6 +889,11 @@ extension EnvironmentValues {
         set { setBuiltinValue(key: "_scrollBounceBehaviorHorizontal", value: newValue, defaultValue: { ScrollBounceBehavior.automatic }) }
     }
 
+    var _defaultScrollAnchor: UnitPoint? {
+        get { builtinValue(key: "_defaultScrollAnchor", defaultValue: { nil }) as! UnitPoint? }
+        set { setBuiltinValue(key: "_defaultScrollAnchor", value: newValue, defaultValue: { nil }) }
+    }
+
     var _scrollIndicatorVisibility: ScrollIndicatorVisibility {
         get { builtinValue(key: "_scrollIndicatorVisibility", defaultValue: { ScrollIndicatorVisibility.automatic }) as! ScrollIndicatorVisibility }
         set { setBuiltinValue(key: "_scrollIndicatorVisibility", value: newValue, defaultValue: { ScrollIndicatorVisibility.automatic }) }

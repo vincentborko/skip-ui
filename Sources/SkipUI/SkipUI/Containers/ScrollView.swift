@@ -88,6 +88,22 @@ public struct ScrollView : View, Renderable {
             effectiveScrollAxes.insert(Axis.Set.horizontal)
         }
 
+        // defaultScrollAnchor: SwiftUI uses this only to choose the *initial* resting
+        // position (e.g. `.bottom` opens a transcript scrolled to the newest content).
+        // We mirror that by scrolling to the anchor a single time once the content size
+        // is known (maxValue > 0), guarded by a remembered flag so it never fights the
+        // user's later scrolling. Unset = .top = offset 0 = the existing behavior.
+        if let defaultScrollAnchor = EnvironmentValues.shared._defaultScrollAnchor, (wantsVerticalScroll || wantsHorizontalScroll) {
+            let didApplyDefaultScrollAnchor = remember { mutableStateOf(false) }
+            LaunchedEffect(scrollState.maxValue) {
+                if !didApplyDefaultScrollAnchor.value && scrollState.maxValue > 0 {
+                    let target = ScrollView.defaultScrollOffset(anchor: defaultScrollAnchor, maxValue: scrollState.maxValue, isVertical: wantsVerticalScroll)
+                    scrollState.scrollTo(target)
+                    didApplyDefaultScrollAnchor.value = true
+                }
+            }
+        }
+
         // scrollBounceBehavior: on Android the iOS "bounce" past the content edge is the stretch
         // overscroll, which Compose shows even when content fits (unlike iOS, which only bounces a
         // too-small scroll view when alwaysBounce is set). `.basedOnSize` means "don't bounce when
@@ -223,6 +239,17 @@ public struct ScrollView : View, Renderable {
         stubView()
     }
     #endif
+
+    /// The initial scroll offset (in Compose scroll units) for a `defaultScrollAnchor`.
+    /// Vertical scrolling keys off the anchor's `y` (0 = top, 1 = bottom); horizontal
+    /// keys off `x` (0 = leading, 1 = trailing). The fraction is clamped to 0...1 and
+    /// scaled by the scroll range so an unset/zero range yields 0 (no regression).
+    /// Extracted as a pure function so the mapping is unit-testable without a device.
+    public static func defaultScrollOffset(anchor: UnitPoint, maxValue: Int, isVertical: Bool) -> Int {
+        let fraction = isVertical ? anchor.y : anchor.x
+        let clamped = min(max(fraction, 0.0), 1.0)
+        return Int((Double(maxValue) * clamped).rounded())
+    }
 }
 
 // SKIP @bridge
@@ -521,6 +548,25 @@ extension View {
     @available(*, unavailable)
     public func scrollClipDisabled(_ disabled: Bool = true) -> some View {
         return self
+    }
+
+    public func defaultScrollAnchor(_ anchor: UnitPoint?) -> any View {
+        #if SKIP
+        return environment(\._defaultScrollAnchor, anchor, affectsEvaluate: false)
+        #else
+        return self
+        #endif
+    }
+
+    // SKIP @bridge
+    public func defaultScrollAnchor(bridgedAnchorX: CGFloat?, bridgedAnchorY: CGFloat?) -> any View {
+        let anchor: UnitPoint?
+        if let bridgedAnchorX, let bridgedAnchorY {
+            anchor = UnitPoint(x: bridgedAnchorX, y: bridgedAnchorY)
+        } else {
+            anchor = nil
+        }
+        return defaultScrollAnchor(anchor)
     }
 
     public func scrollContentBackground(_ visibility: Visibility) -> any View {
