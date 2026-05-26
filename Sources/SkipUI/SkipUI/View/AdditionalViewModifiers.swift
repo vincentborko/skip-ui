@@ -338,6 +338,25 @@ extension View {
         return self
     }
 
+    // SKIP @bridge
+    public func geometryGroup() -> any View {
+        #if SKIP
+        // geometryGroup() asks SwiftUI to resolve the subtree's geometry as a single
+        // unit so an ancestor's geometry change applies to the group as a whole (rather
+        // than each child interpolating its own absolute frame). Compose's closest analog
+        // is an identity graphics-layer boundary: the subtree is promoted to one render
+        // layer, so ancestor transforms apply uniformly to it. Faithful for the common
+        // transform-driven case; the layout-size-driven nuance is approximate (Compose
+        // re-lays-out per frame rather than interpolating frames, so the SwiftUI glitch
+        // this guards against does not arise the same way).
+        return ModifiedContent(content: self, modifier: RenderModifier {
+            return $0.modifier.graphicsLayer()
+        })
+        #else
+        return self
+        #endif
+    }
+
     @available(*, unavailable)
     public func containerBackground(_ style: any ShapeStyle, for container: ContainerBackgroundPlacement) -> some View {
         return self
