@@ -59,6 +59,18 @@ import struct CoreGraphics.CGSize
 import struct Foundation.URL
 #endif
 
+/// Pure visibility-threshold decision for `onScrollVisibilityChange(threshold:_:)`, extracted
+/// so the edge-trigger logic is unit-testable without a device. A view counts as "visible"
+/// when the fraction of its area that survives ancestor clipping (`visibleArea / totalArea`)
+/// is at least `threshold`. A zero-area view — not yet laid out, or fully clipped out of the
+/// scroll viewport — is never considered visible.
+public enum ScrollVisibility {
+    public static func isConsideredVisible(visibleArea: Double, totalArea: Double, threshold: Double) -> Bool {
+        guard totalArea > 0 else { return false }
+        return (visibleArea / totalArea) >= threshold
+    }
+}
+
 extension View {
     // SKIP @bridge
     public func allowsHitTesting(_ enabled: Bool) -> any View {
@@ -996,6 +1008,43 @@ extension View {
             var updatedContext = context
             updatedContext.modifier = context.modifier.onGloballyPositionedInRoot { rect in
                 globalFramePx.value = rect
+            }
+            renderable.Render(context: updatedContext)
+        })
+        #else
+        return self
+        #endif
+    }
+
+    // SwiftUI's onScrollVisibilityChange(threshold:_:) calls `action` with whether enough of the
+    // view is visible within its scroll view, firing only when that crosses `threshold`. On Compose
+    // we approximate "visible" as the fraction of the view's area that survives ancestor clipping:
+    // boundsInWindow() returns the rect clipped by all parents — including the enclosing scroll
+    // container, which clips its scrollable content by default — so visibleArea/totalArea is the
+    // visible fraction. We report the first measured value (initial appearance) and then only on
+    // each subsequent crossing, matching SwiftUI's edge-triggered semantics.
+    //
+    // Scope (honest): visibility is measured against the window (clipped by ancestors), not strictly
+    // the nearest scroll view's bounds, so it's most faithful when the scroll view fills the window;
+    // a scroll view inset from the window edges may report a view as visible while it is scrolled
+    // under a sibling that doesn't clip it.
+    // SKIP @bridge
+    public func onScrollVisibilityChange(threshold: Double = 0.5, _ action: @escaping (Bool) -> Void) -> any View {
+        #if SKIP
+        return ModifiedContent(content: self, modifier: RenderModifier { renderable, context in
+            let isVisibleState = remember { mutableStateOf(nil as Bool?) }
+
+            var updatedContext = context
+            updatedContext.modifier = context.modifier.onGloballyPositioned { coordinates in
+                let sizePx = coordinates.size
+                let totalArea = Double(sizePx.width) * Double(sizePx.height)
+                let visible = coordinates.boundsInWindow()
+                let visibleArea = Double(visible.width) * Double(visible.height)
+                let nowVisible = ScrollVisibility.isConsideredVisible(visibleArea: visibleArea, totalArea: totalArea, threshold: threshold)
+                if isVisibleState.value == nil || isVisibleState.value != nowVisible {
+                    isVisibleState.value = nowVisible
+                    action(nowVisible)
+                }
             }
             renderable.Render(context: updatedContext)
         })
