@@ -1,6 +1,14 @@
 // Copyright 2023–2026 Skip
 // SPDX-License-Identifier: MPL-2.0
 #if !SKIP_BRIDGE
+#if SKIP
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.ui.graphics.graphicsLayer
+#endif
 
 extension View {
     @available(*, unavailable)
@@ -11,6 +19,68 @@ extension View {
     @available(*, unavailable)
     public func symbolEffect(_ effect: Any, options: Any? = nil /* SymbolEffectOptions = .default */, value: Any) -> some View {
         return self
+    }
+
+    /// Bridged entry point for `View.symbolEffect(_:...)`.
+    ///
+    /// The Fuse layer (skip-fuse-ui) discriminates the opaque SwiftUI `SymbolEffect` value into a small
+    /// integer so we can pick the matching Compose animation here. SF Symbols render as a single Material
+    /// `ImageVector`/painter (no per-layer access), so the achievable effects are the whole-glyph
+    /// transform/opacity ones — we animate the rendered content's `graphicsLayer`:
+    ///   - `bridgedEffect == 1` (**pulse**): opacity oscillates while `isActive` (indefinite).
+    ///   - `bridgedEffect == 2` (**bounce**): a one-shot scale pop each time `bridgedValue` changes (discrete).
+    ///   - `bridgedEffect == 3` (**scale**): animates to a held scale while `isActive`, back to 1 when not.
+    /// `direction` is 0 for the default/`.up` sense and 1 for `.down`. Layer-based effects
+    /// (`.variableColor`) and content/transition effects (`.replace`/`.appear`/`.disappear`) are not
+    /// discriminated by the bridge and fall through to no animation.
+    // SKIP @bridge
+    public func symbolEffect(bridgedEffect: Int, direction: Int, isActive: Bool, bridgedValue: Int) -> any View {
+        #if SKIP
+        return ModifiedContent(content: self, modifier: RenderModifier { context in
+            let scaleAnim = remember { Animatable(Float(1.0)) }
+            let alphaAnim = remember { Animatable(Float(1.0)) }
+            // The discrete `value:` overload fires only when the value *changes*, not on first appearance.
+            let isFirstValue = remember { mutableStateOf(true) }
+
+            // Indefinite effects (pulse / scale) are keyed on the active state.
+            LaunchedEffect(isActive, bridgedEffect) {
+                if bridgedEffect == 1 {
+                    if isActive {
+                        // Cancelled (and the symbol restored below) when isActive flips, via the key change.
+                        while true {
+                            alphaAnim.animateTo(targetValue: Float(0.3), animationSpec: tween(durationMillis: 500))
+                            alphaAnim.animateTo(targetValue: Float(1.0), animationSpec: tween(durationMillis: 500))
+                        }
+                    } else {
+                        alphaAnim.animateTo(targetValue: Float(1.0), animationSpec: tween(durationMillis: 200))
+                    }
+                } else if bridgedEffect == 3 {
+                    let target = isActive ? (direction == 1 ? Float(0.7) : Float(1.3)) : Float(1.0)
+                    scaleAnim.animateTo(targetValue: target, animationSpec: tween(durationMillis: 250))
+                }
+            }
+
+            // Discrete bounce is keyed on the value token; skip the initial composition.
+            LaunchedEffect(bridgedValue) {
+                if isFirstValue.value {
+                    isFirstValue.value = false
+                } else if bridgedEffect == 2 {
+                    let peak = direction == 1 ? Float(0.7) : Float(1.35)
+                    scaleAnim.snapTo(Float(1.0))
+                    scaleAnim.animateTo(targetValue: peak, animationSpec: tween(durationMillis: 130))
+                    scaleAnim.animateTo(targetValue: Float(1.0), animationSpec: tween(durationMillis: 220))
+                }
+            }
+
+            return context.modifier.graphicsLayer {
+                alpha = alphaAnim.value
+                scaleX = scaleAnim.value
+                scaleY = scaleAnim.value
+            }
+        })
+        #else
+        return self
+        #endif
     }
 
     @available(*, unavailable)
