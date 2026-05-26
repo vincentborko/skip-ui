@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: MPL-2.0
 #if !SKIP_BRIDGE
 #if SKIP
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.LocalOverscrollFactory
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -16,6 +18,7 @@ import androidx.compose.material.pullrefresh.PullRefreshState
 import androidx.compose.material.pullrefresh.pullRefresh
 import androidx.compose.material.pullrefresh.rememberPullRefreshState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -56,7 +59,7 @@ public struct ScrollView : View, Renderable {
     }
 
     #if SKIP
-    // SKIP INSERT: @OptIn(ExperimentalMaterialApi::class)
+    // SKIP INSERT: @OptIn(ExperimentalMaterialApi::class, ExperimentalFoundationApi::class)
     @Composable override func Render(context: ComposeContext) {
         // Some components in Compose have their own scrolling built in
         let (builtinScrollAxisSet, builtinScrollAxisSetCollector) = rememberSaveablePreferenceCollector(key: BuiltinScrollAxisSetPreferenceKey.self, stateSaver: context.stateSaver as! Saver<Preference<Axis.Set>, Any>)
@@ -84,6 +87,23 @@ public struct ScrollView : View, Renderable {
             scrollModifier = scrollModifier.horizontalScroll(scrollState, enabled: !isScrollDisabled)
             effectiveScrollAxes.insert(Axis.Set.horizontal)
         }
+
+        // scrollBounceBehavior: on Android the iOS "bounce" past the content edge is the stretch
+        // overscroll, which Compose shows even when content fits (unlike iOS, which only bounces a
+        // too-small scroll view when alwaysBounce is set). `.basedOnSize` means "don't bounce when
+        // content fits", so when it's set for the active axis and the content isn't scrollable
+        // (maxValue == 0) we suppress the overscroll factory below. `.automatic`/`.always` keep the
+        // Compose default (no regression). maxValue changes only on size/content change, so reading
+        // it in composition is cheap (unlike scrollState.value, which we deliberately avoid above).
+        let bounceBehavior: ScrollBounceBehavior
+        if wantsVerticalScroll {
+            bounceBehavior = EnvironmentValues.shared._scrollBounceBehaviorVertical
+        } else if wantsHorizontalScroll {
+            bounceBehavior = EnvironmentValues.shared._scrollBounceBehaviorHorizontal
+        } else {
+            bounceBehavior = ScrollBounceBehavior.automatic
+        }
+        let suppressOverscroll = bounceBehavior == ScrollBounceBehavior.basedOnSize && scrollState.maxValue == 0
 
         let contentContext = context.content()
         ComposeContainer(scrollAxes: effectiveScrollAxes, modifier: context.modifier, fillWidth: axes.contains(.horizontal), fillHeight: axes.contains(.vertical)) { modifier in
@@ -165,6 +185,12 @@ public struct ScrollView : View, Renderable {
                         finalScrollModifier = scrollModifier
                     }
 
+                    // Re-provide the current factory when not suppressing, so this wrapper is a no-op
+                    // for `.automatic`/`.always`; provide `null` to drop the stretch overscroll when
+                    // `.basedOnSize` and the content fits. The scroll modifier on the Column reads
+                    // LocalOverscrollFactory at composition, so the provider must wrap it here.
+                    // SKIP INSERT: val overscrollProvided = LocalOverscrollFactory provides (if (suppressOverscroll) null else LocalOverscrollFactory.current)
+                    CompositionLocalProvider(overscrollProvided) {
                     Column(modifier: finalScrollModifier) {
                         if wantsVerticalScroll {
                             let searchableState = EnvironmentValues.shared._searchableState
@@ -183,6 +209,7 @@ public struct ScrollView : View, Renderable {
                                 content.Compose(context: contentContext)
                             }
                         }
+                    }
                     }
                     if let refreshState {
                         PullRefreshIndicator(refreshing.value, refreshState, Modifier.align(androidx.compose.ui.Alignment.TopCenter))
@@ -377,10 +404,10 @@ public struct ScrollPosition {
     public init() {}
 }
 
-public enum ScrollBounceBehavior {
-    case automatic
-    case always
-    case basedOnSize
+public enum ScrollBounceBehavior: Int {
+    case automatic = 0 // For bridging
+    case always = 1 // For bridging
+    case basedOnSize = 2 // For bridging
 }
 
 public enum ScrollDismissesKeyboardMode: Int {
@@ -471,9 +498,24 @@ extension View {
         return contentMargins(Edge.Set(rawValue: edges), EdgeInsets(top: top, leading: leading, bottom: bottom, trailing: trailing), for: placementValue)
     }
 
-    @available(*, unavailable)
-    public func scrollBounceBehavior(_ behavior: ScrollBounceBehavior, axes: Axis.Set = [.vertical]) -> some View {
+    public func scrollBounceBehavior(_ behavior: ScrollBounceBehavior, axes: Axis.Set = [.vertical]) -> any View {
+        #if SKIP
+        var view: any View = self
+        if axes.contains(.vertical) {
+            view = view.environment(\._scrollBounceBehaviorVertical, behavior, affectsEvaluate: false)
+        }
+        if axes.contains(.horizontal) {
+            view = view.environment(\._scrollBounceBehaviorHorizontal, behavior, affectsEvaluate: false)
+        }
+        return view
+        #else
         return self
+        #endif
+    }
+
+    // SKIP @bridge
+    public func scrollBounceBehavior(bridgedBehavior: Int, bridgedAxes: Int) -> any View {
+        return scrollBounceBehavior(ScrollBounceBehavior(rawValue: bridgedBehavior) ?? ScrollBounceBehavior.automatic, axes: Axis.Set(rawValue: bridgedAxes))
     }
 
     @available(*, unavailable)

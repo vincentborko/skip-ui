@@ -866,6 +866,16 @@ extension EnvironmentValues {
         set { setBuiltinValue(key: "_scrollDisabled", value: newValue, defaultValue: { false }) }
     }
 
+    var _scrollBounceBehaviorVertical: ScrollBounceBehavior {
+        get { builtinValue(key: "_scrollBounceBehaviorVertical", defaultValue: { ScrollBounceBehavior.automatic }) as! ScrollBounceBehavior }
+        set { setBuiltinValue(key: "_scrollBounceBehaviorVertical", value: newValue, defaultValue: { ScrollBounceBehavior.automatic }) }
+    }
+
+    var _scrollBounceBehaviorHorizontal: ScrollBounceBehavior {
+        get { builtinValue(key: "_scrollBounceBehaviorHorizontal", defaultValue: { ScrollBounceBehavior.automatic }) as! ScrollBounceBehavior }
+        set { setBuiltinValue(key: "_scrollBounceBehaviorHorizontal", value: newValue, defaultValue: { ScrollBounceBehavior.automatic }) }
+    }
+
     var _scrollIndicatorVisibility: ScrollIndicatorVisibility {
         get { builtinValue(key: "_scrollIndicatorVisibility", defaultValue: { ScrollIndicatorVisibility.automatic }) as! ScrollIndicatorVisibility }
         set { setBuiltinValue(key: "_scrollIndicatorVisibility", value: newValue, defaultValue: { ScrollIndicatorVisibility.automatic }) }
