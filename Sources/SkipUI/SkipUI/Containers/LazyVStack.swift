@@ -68,7 +68,15 @@ public struct LazyVStack : View, Renderable {
 
         let renderables = content.EvaluateLazyItems(level: 0, context: context)
         let itemCollector = remember { mutableStateOf(LazyItemCollector()) }
-        ComposeContainer(axis: .vertical, scrollAxes: scrollAxes, modifier: context.modifier, fillWidth: true) { modifier in
+        // REVIEW: fillHeight fix rescued from the abandoned `fix/lazyvstack-fill-height` work (2026-05-29) — verify visual behavior before relying on it.
+        // If we're in a vertical scrolling layout, attempting to fill height uses the intrinsic size
+        // instead. But Compose crashes if you attempt to get the intrinsic height for components like
+        // lazy lists, so turn off fill behavior if vertically scrolling. Without this fill, a parent
+        // `ScrollView { LazyVStack { ... } }` (where the ScrollView delegates scrolling to the lazy
+        // child and so doesn't fill its own container box) wraps the lazy column's content height
+        // and leaves dead space at the bottom when content is shorter than the viewport.
+        let fillHeight = !EnvironmentValues.shared._layoutScrollAxes.contains(.vertical)
+        ComposeContainer(axis: .vertical, scrollAxes: scrollAxes, modifier: context.modifier, fillWidth: true, fillHeight: fillHeight) { modifier in
             IgnoresSafeAreaLayout(expandInto: [], checkEdges: [.bottom], modifier: modifier, logTag: "LazyVStack") { _, safeAreaEdges in
                 // Integrate with our scroll-to-top and ScrollViewReader
                 let listState = rememberLazyListState(initialFirstVisibleItemIndex = isSearchable ? 1 : 0)
