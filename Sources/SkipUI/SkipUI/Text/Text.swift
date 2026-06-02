@@ -94,6 +94,17 @@ public struct Text: View, Renderable, Equatable {
         modifiedView = textView
     }
 
+    // SKIP @bridge
+    public init(bridgedRuns runs: [any View], colors: [any View], fontSizes: [Double], fontWeights: [Int], flags: [Int]) {
+        #if SKIP
+        textView = _Text(verbatim: "")
+        modifiedView = _ConcatenatedText(runs: runs, colors: colors, fontSizes: fontSizes, fontWeights: fontWeights, flags: flags)
+        #else
+        textView = _Text(verbatim: "")
+        modifiedView = textView
+        #endif
+    }
+
     init(textView: _Text, modifiedView: any View) {
         self.textView = textView
         // Don't copy view
@@ -596,6 +607,149 @@ struct _Text: View, Renderable, Equatable {
     }
     #endif
 }
+
+#if SKIP
+/// Renders a concatenation of styled text runs (the result of `Text + Text`) as a single Compose
+/// `AnnotatedString`, applying each run's captured styling as a `SpanStyle`.
+///
+/// SkipFuse constructs this via `Text.init(bridgedRuns:colors:fontSizes:fontWeights:flags:)`: the
+/// styling modifiers (`.foregroundColor`, `.font`, `.bold`, …) are captured as *data* on the Swift
+/// side — where they are applied — and bridged across as primitive per-run descriptors, because a
+/// styled `Text` applies its style as an environment modifier that cannot be read back out at render
+/// time to build per-run spans.
+struct _ConcatenatedText: View, Renderable {
+    let runs: [any View]      // each run's base text (a `Text`), used only for its localized string
+    let colors: [any View]    // each run's foreground color (a `Color`); honored only when the hasColor flag is set
+    let fontSizes: [Double]   // each run's point size; honored only when the hasFontSize flag is set
+    let fontWeights: [Int]    // each run's Compose font weight (100...900); honored only when the hasFontWeight flag is set
+    let flags: [Int]          // per-run style bitmask (see the constants below)
+
+    // Per-run style bitmask. Kept in sync with SkipSwiftUI's Text run capture.
+    static let hasForegroundFlag = 1
+    static let hasFontSizeFlag = 2
+    static let hasFontWeightFlag = 4
+    static let italicFlag = 8
+    static let monospacedFlag = 16
+    static let underlineFlag = 32
+    static let strikethroughFlag = 64
+
+    // SKIP INSERT: @OptIn(ExperimentalTextApi::class)
+    @Composable override func Render(context: ComposeContext) {
+        let textEnvironment = EnvironmentValues.shared._textEnvironment
+        let textDecoration = textEnvironment.textDecoration
+        let textAlign = EnvironmentValues.shared.multilineTextAlignment.asTextAlign()
+        let maxLines = max(1, EnvironmentValues.shared.lineLimit ?? Int.MAX_VALUE)
+        let truncationMode = EnvironmentValues.shared.truncationMode
+        let hasLineLimit = (EnvironmentValues.shared.lineLimit != nil)
+        let reservesSpace = EnvironmentValues.shared._lineLimitReservesSpace ?? false
+        let minLines = reservesSpace ? maxLines : 1
+        let redaction = EnvironmentValues.shared.redactionReasons
+        let styleInfo = Text.styleInfo(textEnvironment: textEnvironment, redaction: redaction, context: context)
+        let animatable = styleInfo.style.asAnimatable(context: context)
+
+        // Resolve each run's localized string and foreground color here, in the @Composable scope:
+        // `localizedTextString()` and `asComposeColor()` are @Composable and cannot be called from
+        // inside the (non-composable) `buildAnnotatedString` builder lambda below.
+        var runStrings: [String] = []
+        var runColors: [androidx.compose.ui.graphics.Color?] = []
+        var runBrushes: [Brush?] = []
+        for i in 0..<runs.count {
+            if let text = runs[i] as? Text {
+                runStrings.append(text.localizedTextString())
+            } else {
+                runStrings.append("")
+            }
+            let flag = i < flags.count ? flags[i] : 0
+            var resolvedColor: androidx.compose.ui.graphics.Color? = nil
+            var resolvedBrush: Brush? = nil
+            // The foreground bridges as any ShapeStyle (a Color or a gradient): resolve it to a solid
+            // color when it is one, otherwise to a Compose brush (mirrors Text.styleInfo).
+            if (flag & _ConcatenatedText.hasForegroundFlag) != 0, let shapeStyle = colors[i] as? ShapeStyle {
+                if let color = shapeStyle.asColor(opacity: 1.0, animationContext: context) {
+                    resolvedColor = color
+                } else {
+                    resolvedBrush = shapeStyle.asBrush(opacity: 1.0, animationContext: context)
+                }
+            }
+            runColors.append(resolvedColor)
+            runBrushes.append(resolvedBrush)
+        }
+
+        let annotatedText = buildAnnotatedString {
+            appendRuns(to: self, strings: runStrings, resolvedColors: runColors, resolvedBrushes: runBrushes)
+        }
+
+        var modifier = Modifier.flexibleWidth(max: Float.flexibleUnknownNonExpanding).then(context.modifier)
+        if EnvironmentValues.shared._layoutAxis == .horizontal {
+            modifier = modifier.applyHStackTextBaselineAlignment(EnvironmentValues.shared._horizontalStackVerticalAlignmentKey)
+        }
+        var options = Material3TextOptions(annotatedText: annotatedText, modifier: modifier, color: styleInfo.color ?? androidx.compose.ui.graphics.Color.Unspecified, maxLines: maxLines, minLines: minLines, style: animatable.value, textDecoration: textDecoration, textAlign: textAlign, onTextLayout: { _ in })
+        if let tracking = textEnvironment.tracking {
+            options = options.copy(letterSpacing: tracking.sp)
+        }
+        if let lineSpacing = textEnvironment.lineSpacing {
+            let lineHeightEm = 1.0 + (lineSpacing / 16.0)
+            options = options.copy(lineHeight: lineHeightEm.em)
+        }
+        if hasLineLimit {
+            options = options.copy(
+                overflow: {
+                    let singleLine = (maxLines == 1) || options.softWrap == false
+                    switch truncationMode {
+                    case .tail:
+                        return TextOverflow.Ellipsis
+                    case .head:
+                        return singleLine ? TextOverflow.StartEllipsis : TextOverflow.Ellipsis
+                    case .middle:
+                        return singleLine ? TextOverflow.MiddleEllipsis : TextOverflow.Ellipsis
+                    default:
+                        return TextOverflow.Clip
+                    }
+                }()
+            )
+        }
+        if let updateOptions = EnvironmentValues.shared._material3Text {
+            options = updateOptions(options)
+        }
+        if let annotatedText = options.annotatedText {
+            androidx.compose.material3.Text(text: annotatedText, modifier: options.modifier, color: options.color, autoSize: options.autoSize, fontSize: options.fontSize, fontStyle: options.fontStyle, fontWeight: options.fontWeight, fontFamily: options.fontFamily, letterSpacing: options.letterSpacing, textDecoration: options.textDecoration, textAlign: options.textAlign, lineHeight: options.lineHeight, overflow: options.overflow, softWrap: options.softWrap, maxLines: options.maxLines, minLines: options.minLines, onTextLayout: options.onTextLayout ?? { _ in }, style: options.style)
+        }
+    }
+
+    /// Append the styled runs to `builder`. Non-composable: the strings and colors are pre-resolved
+    /// in `Render`. Mirrors the markdown builder's `append(markdown:to:)` helper pattern; `self` at
+    /// the call site (`buildAnnotatedString { appendRuns(to: self, …) }`) is the builder receiver.
+    private func appendRuns(to builder: AnnotatedString.Builder, strings: [String], resolvedColors: [androidx.compose.ui.graphics.Color?], resolvedBrushes: [Brush?]) {
+        for i in 0..<strings.count {
+            let flag = i < flags.count ? flags[i] : 0
+            let underline = (flag & _ConcatenatedText.underlineFlag) != 0
+            let strikethrough = (flag & _ConcatenatedText.strikethroughFlag) != 0
+            var decoration: TextDecoration? = nil
+            if underline, strikethrough {
+                decoration = TextDecoration.Underline + TextDecoration.LineThrough
+            } else if underline {
+                decoration = TextDecoration.Underline
+            } else if strikethrough {
+                decoration = TextDecoration.LineThrough
+            }
+            let fontSize = (flag & _ConcatenatedText.hasFontSizeFlag) != 0 ? fontSizes[i].sp : TextUnit.Unspecified
+            let fontWeight = (flag & _ConcatenatedText.hasFontWeightFlag) != 0 ? FontWeight(fontWeights[i]) : nil
+            let fontStyle = (flag & _ConcatenatedText.italicFlag) != 0 ? FontStyle.Italic : nil
+            let fontFamily = (flag & _ConcatenatedText.monospacedFlag) != 0 ? FontFamily.Monospace : nil
+            let span: SpanStyle
+            if let brush = resolvedBrushes[i] {
+                // Gradient (or other non-color ShapeStyle) foreground.
+                span = SpanStyle(brush: brush, fontSize: fontSize, fontWeight: fontWeight, fontStyle: fontStyle, fontFamily: fontFamily, textDecoration: decoration)
+            } else {
+                span = SpanStyle(color: resolvedColors[i] ?? androidx.compose.ui.graphics.Color.Unspecified, fontSize: fontSize, fontWeight: fontWeight, fontStyle: fontStyle, fontFamily: fontFamily, textDecoration: decoration)
+            }
+            builder.pushStyle(span)
+            builder.append(strings[i])
+            builder.pop()
+        }
+    }
+}
+#endif
 
 public enum TextAlignment : Int, Hashable, CaseIterable {
     case leading = 0 // For bridging
