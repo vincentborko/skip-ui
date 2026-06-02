@@ -4,6 +4,7 @@
 import Foundation
 #if SKIP
 import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -1037,9 +1038,21 @@ extension View {
         return self
     }
 
-    @available(*, unavailable)
-    public func textSelection(_ selectability: TextSelectability) -> some View {
+    public func textSelection(_ selectability: TextSelectability) -> any View {
+        #if SKIP
+        return ModifiedContent(content: self, modifier: TextSelectionModifier(enabled: selectability == TextSelectability.enabled))
+        #else
         return self
+        #endif
+    }
+
+    // SKIP @bridge
+    public func textSelection(bridgedEnabled: Bool) -> any View {
+        #if SKIP
+        return ModifiedContent(content: self, modifier: TextSelectionModifier(enabled: bridgedEnabled))
+        #else
+        return self
+        #endif
     }
 
     // SKIP @bridge
@@ -1090,6 +1103,29 @@ extension View {
 }
 
 #if SKIP
+/// Wraps content in a Compose `SelectionContainer` so its text becomes long-press selectable
+/// (with copy handles). `.disabled` renders the content unchanged. Models the no-action
+/// `EnvironmentModifier` + `Render`-override pattern; renders `content.Render` directly inside the
+/// provider lambda (a `super.Render` call inside a Compose lambda is illegal in Kotlin).
+final class TextSelectionModifier: EnvironmentModifier {
+    let enabled: Bool
+
+    init(enabled: Bool) {
+        self.enabled = enabled
+        super.init()
+    }
+
+    @Composable override func Render(content: Renderable, context: ComposeContext) -> Void {
+        if enabled {
+            SelectionContainer {
+                content.Render(context: context)
+            }
+        } else {
+            content.Render(context: context)
+        }
+    }
+}
+
 public struct Material3TextOptions {
     public var text: String? = nil
     public var annotatedText: AnnotatedString? = nil
