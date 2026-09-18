@@ -8,6 +8,7 @@ import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.drawscope.ContentDrawScope
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.nativeCanvas
 
 class ColorInvertModifier : DrawModifier {
     // SKIP DECLARE: override fun ContentDrawScope.draw()
@@ -217,6 +218,41 @@ class ColorMultiplyModifier : DrawModifier {
         }
         drawIntoCanvas {
             $0.saveLayer(Rect(Float(0.0), Float(0.0), size.width, size.height), paint)
+            drawContent()
+            $0.restore()
+        }
+    }
+}
+
+/// Applies opacity to the content.
+///
+/// A `graphicsLayer` alpha is sized to the layout bounds and cuts off whatever the content draws
+/// outside them, so an unbounded `blur()` under an `opacity()` gets a hard edge. The layer opened
+/// here is bounded by the current clip instead. The value is read in the draw phase, so animating
+/// it does not recompose.
+class OpacityModifier : DrawModifier {
+    let opacity: () -> Float
+
+    init(opacity: () -> Float) {
+        self.opacity = opacity
+    }
+
+    // SKIP DECLARE: override fun ContentDrawScope.draw()
+    override func draw() {
+        let value = opacity()
+        guard value < Float(1.0) else {
+            drawContent()
+            return
+        }
+        guard value > Float(0.0) else {
+            return
+        }
+        let paint = Paint().apply {
+            alpha = value
+        }
+        drawIntoCanvas {
+            let clip = $0.nativeCanvas.clipBounds
+            $0.saveLayer(Rect(Float(clip.left), Float(clip.top), Float(clip.right), Float(clip.bottom)), paint)
             drawContent()
             $0.restore()
         }
