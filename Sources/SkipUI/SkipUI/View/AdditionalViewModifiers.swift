@@ -1024,7 +1024,7 @@ extension View {
         #if SKIP
         return ModifiedContent(content: self, modifier: RenderModifier { context in
             let animatable = Float(opacity).asAnimatable(context: context)
-            return context.modifier.graphicsLayer { alpha = animatable.value }
+            return context.modifier.then(OpacityModifier(opacity: { animatable.value }))
         })
         #else
         return self
