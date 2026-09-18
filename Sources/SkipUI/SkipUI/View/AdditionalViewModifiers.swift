@@ -245,7 +245,12 @@ extension View {
         #if SKIP
         return ModifiedContent(content: self, modifier: RenderModifier { context in
             let animatedRadius = Float(radius).asAnimatable(context: context).value
-            return context.modifier.blur(radiusX: animatedRadius.dp, radiusY: animatedRadius.dp, edgeTreatment: BlurredEdgeTreatment.Unbounded)
+            if opaque {
+                return context.modifier.blur(radiusX: animatedRadius.dp, radiusY: animatedRadius.dp, edgeTreatment: BlurredEdgeTreatment.Rectangle)
+            } else {
+                // See Blurred.kt: a render effect alone is clipped to its layer bounds
+                return context.modifier.blurredOutwards(radius: animatedRadius.dp)
+            }
         })
         #else
         return self
