@@ -1087,6 +1087,14 @@ extension View {
         let animTx = StateTracking.captureLastReadAndClear()
         return ModifiedContent(content: self, modifier: RenderModifier { context in
             let animatable = Float(opacity).asAnimatable(context: context, animTx: animTx)
+            // While the value animates, it goes into a layer of its own and is read in the layer
+            // block, not here: each frame then only updates that layer's alpha. The clip-bounded
+            // `saveLayer` below is recorded into the enclosing layer, usually the whole window, so
+            // every animation frame re-recorded and redrew the window and recomposed this modifier.
+            // An endless `repeatForever` pulse on a 6 dp dot kept the screen at full redraw.
+            if animatable.isRunning {
+                return context.modifier.graphicsLayer { alpha = animatable.value }
+            }
             return context.modifier.then(OpacityModifier(opacity: animatable.value))
         })
         #else
